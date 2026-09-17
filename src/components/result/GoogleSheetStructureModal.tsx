@@ -23,6 +23,7 @@ import {
 import { ClassLevel } from '../../types';
 import { SUBJECTS_BY_CLASS, DEFAULT_STUDENTS_BY_CLASS } from '../../data/schoolConfig';
 import { ClassSubjectAllotmentMap } from '../../types/resultTypes';
+import { formatDisplayDate } from '../../utils/dateFormatter';
 
 const ALL_CLASSES: ClassLevel[] = [
   'Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'
@@ -1295,7 +1296,7 @@ function jsonResponse(obj) {
                               {st.motherName}
                             </td>
                             <td className="px-3 py-1.5 border-r border-slate-200 text-slate-600 font-mono">
-                              {st.dob}
+                              {formatDisplayDate(st.dob) || st.dob}
                             </td>
                             <td className="px-3 py-1.5">
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

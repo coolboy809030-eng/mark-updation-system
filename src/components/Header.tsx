@@ -127,60 +127,40 @@ export const Header: React.FC<HeaderProps> = ({
               </>
             )}
 
-            {/* Direct Download .txt Report Button */}
-            <a
-              id="btn-download-txt-report-header"
-              href="/FINAL_TECHNICAL_HANDOVER_REPORT.txt"
-              download="FINAL_TECHNICAL_HANDOVER_REPORT.txt"
-              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-              title="Download Master Technical Baseline Report (.txt)"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-300" />
-              <span>Download .txt Report</span>
-            </a>
-
-            {/* Guide Button */}
+            {/* Guide / Evaluation Rules Button */}
             <button
               onClick={onOpenGuide}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
               title="View system evaluation rules & shortcuts"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span className="hidden md:inline">Rules</span>
+              <span>Rules</span>
             </button>
 
-            {/* Switch to Result Generator / Left Navigation Panel */}
-            {onSwitchToResultGenerator && (
-              <button
-                id="btn-header-switch-result-gen"
-                onClick={onSwitchToResultGenerator}
-                className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                title="रिजल्ट जनरेटर पोर्टल और नेविगेशन पैनल पर जाएं"
-              >
-                <PanelLeft className="w-3.5 h-3.5 text-slate-950" />
-                <span className="font-bold">नेविगेशन पैनल (Result Portal)</span>
-              </button>
-            )}
+            {/* Admin Controls (Visible ONLY when Admin Session is Authenticated) */}
+            {isAdminSessionActive && (
+              <>
+                {onSwitchToResultGenerator && (
+                  <button
+                    id="btn-header-switch-result-gen"
+                    onClick={onSwitchToResultGenerator}
+                    className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    title="रिजल्ट जनरेटर पोर्टल और नेविगेशन पैनल पर जाएं"
+                  >
+                    <PanelLeft className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Result Portal</span>
+                  </button>
+                )}
 
-            {/* Admin / Examination In-charge Mode */}
-            {isAdminSessionActive ? (
-              <button
-                onClick={onOpenSettings}
-                className="px-3 py-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Admin Control Active - Click to configure locks and database"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>Admin Controls</span>
-              </button>
-            ) : (
-              <button
-                onClick={onOpenAdminLogin}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-amber-400/40 text-amber-200 hover:text-amber-100 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                title="Admin / Examination In-charge Login"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span className="hidden sm:inline">Admin Login</span>
-              </button>
+                <button
+                  onClick={onOpenSettings}
+                  className="px-3 py-1 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 border border-amber-400/40 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Admin Control Active - Click to configure locks and database"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Admin Controls</span>
+                </button>
+              </>
             )}
           </div>
 

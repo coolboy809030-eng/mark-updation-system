@@ -70,6 +70,8 @@ import {
   getTeacherAuthorizedSections,
   getTeacherAuthorizedSubjects
 } from './utils/teacherAccount';
+import { getEffectiveGasUrl } from './config/appConfig';
+import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from './services/teacherSyncService';
 import {
   CheckCircle2,
   AlertCircle,
@@ -78,7 +80,8 @@ import {
   Users,
   Settings,
   UserCheck,
-  BookOpen
+  BookOpen,
+  Shield
 } from 'lucide-react';
 
 const SETTINGS_STORAGE_KEY = 'pis_markupdation_settings_v1';
@@ -315,14 +318,18 @@ export default function App() {
       const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
 
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          googleSheetApiUrl: getEffectiveGasUrl(parsed?.googleSheetApiUrl)
+        };
       }
     } catch {
       // fallback
     }
 
     return {
-      googleSheetApiUrl: '',
+      googleSheetApiUrl: getEffectiveGasUrl(),
       lockPassword: '1234',
       studentsPerPage: 20,
       isOfflineDemo: false
@@ -374,7 +381,7 @@ export default function App() {
   };
 
   // ------------------------------------------------------------
-  // TEACHER ACCOUNTS
+  // TEACHER ACCOUNTS (Cross-Device with Google Sheet _TEACHERS)
   // ------------------------------------------------------------
   const [teacherAccounts, setTeacherAccounts] =
     useState<TeacherAccount[]>(() => {
@@ -388,6 +395,36 @@ export default function App() {
     window.addEventListener('correction_requests_updated', refreshCorrections);
     return () => window.removeEventListener('correction_requests_updated', refreshCorrections);
   }, []);
+
+  // ------------------------------------------------------------
+  // TEACHER ALLOTMENTS / PERMISSIONS
+  // ------------------------------------------------------------
+  const [teacherAllotments, setTeacherAllotments] =
+    useState<TeacherAllotment[]>(() => {
+      return loadTeacherAllotments();
+    });
+
+  // Cross-device sync from Google Sheet _TEACHERS tab on startup
+  useEffect(() => {
+    const syncFromCloud = async () => {
+      const gasUrl = settings.googleSheetApiUrl;
+      if (!gasUrl || gasUrl.includes('PASTE_YOUR')) return;
+      try {
+        const cloudData = await fetchTeacherRegistryFromGAS(gasUrl);
+        if (cloudData.success && cloudData.accounts && cloudData.accounts.length > 0) {
+          setTeacherAccounts(cloudData.accounts);
+          saveTeacherAccounts(cloudData.accounts);
+          if (cloudData.allotments && cloudData.allotments.length > 0) {
+            setTeacherAllotments(cloudData.allotments);
+            saveTeacherAllotments(cloudData.allotments);
+          }
+        }
+      } catch (e) {
+        // Graceful fallback to local cache
+      }
+    };
+    syncFromCloud();
+  }, [settings.googleSheetApiUrl]);
 
   const handleUpdateTeacherAccounts = (
     newAccounts: TeacherAccount[]
@@ -408,6 +445,11 @@ export default function App() {
         );
       } catch {
         // ignore
+      }
+
+      // Auto-sync update to Google Sheet _TEACHERS tab
+      if (settings.googleSheetApiUrl && !settings.googleSheetApiUrl.includes('PASTE_YOUR')) {
+        saveTeacherRegistryToGAS(newAccounts, synced, settings.googleSheetApiUrl).catch(() => {});
       }
 
       return synced;
@@ -442,19 +484,16 @@ export default function App() {
     };
   }, []);
 
-  // ------------------------------------------------------------
-  // TEACHER ALLOTMENTS / PERMISSIONS
-  // ------------------------------------------------------------
-  const [teacherAllotments, setTeacherAllotments] =
-    useState<TeacherAllotment[]>(() => {
-      return loadTeacherAllotments();
-    });
-
   const handleUpdateTeacherAllotments = (
     newAllotments: TeacherAllotment[]
   ) => {
     setTeacherAllotments(newAllotments);
     saveTeacherAllotments(newAllotments);
+
+    // Auto-sync update to Google Sheet _TEACHERS tab
+    if (settings.googleSheetApiUrl && !settings.googleSheetApiUrl.includes('PASTE_YOUR')) {
+      saveTeacherRegistryToGAS(teacherAccounts, newAllotments, settings.googleSheetApiUrl).catch(() => {});
+    }
 
     showNotification(
       'success',
@@ -1513,25 +1552,18 @@ export default function App() {
     }
   };
 
-  const handleClearSheetData = async () => {
-    if (!selectedClass) {
+  const handleClearSheetData = async (targetClass?: string) => {
+    const cls = targetClass || selectedClass;
+    if (!cls) {
       showNotification('error', 'Please select a class before clearing Google Sheet data.');
       return;
     }
 
     const sheetUrl = settings.googleSheetApiUrl.trim();
     if (!sheetUrl || sheetUrl.includes('PASTE_YOUR')) {
-      showNotification('warning', 'No Google Sheet URL is configured. Only the local form inputs were cleared.');
-      setValues({});
-      if (draftKey) localStorage.removeItem(draftKey);
+      showNotification('warning', 'No Google Sheet URL is configured.');
       return;
     }
-
-    const confirmed = window.confirm(
-      `This will clear all marks and attendance values already stored in Google Sheet for Class ${selectedClass}. Continue?`
-    );
-
-    if (!confirmed) return;
 
     try {
       const response = await fetch(sheetUrl, {
@@ -1541,17 +1573,19 @@ export default function App() {
         },
         body: JSON.stringify({
           action: 'clearSheetData',
-          class: selectedClass,
-          entryType
+          class: cls,
+          entryType: entryType || 'marks'
         })
       });
 
       const data = await response.json();
 
       if (data.status === 'success') {
-        setValues({});
-        if (draftKey) localStorage.removeItem(draftKey);
-        showNotification('success', data.message || `Cleared all marks and attendance for Class ${selectedClass}.`);
+        if (cls === selectedClass) {
+          setValues({});
+          if (draftKey) localStorage.removeItem(draftKey);
+        }
+        showNotification('success', data.message || `Cleared all marks and attendance for Class ${cls}.`);
       } else {
         showNotification('error', data.message || 'Could not clear Google Sheet data.');
       }
@@ -2218,9 +2252,6 @@ export default function App() {
           onClearInputs={
             handleClearInputs
           }
-          onClearSheetData={
-            handleClearSheetData
-          }
           isLoading={isLoading}
           hasLoadedStudents={
             students.length > 0
@@ -2652,10 +2683,21 @@ export default function App() {
               Evaluation Guide & Shortcuts
             </button>
 
-            {isAdminAuthenticatedFlag && (
+            {!isAdminAuthenticatedFlag ? (
               <>
                 <span>•</span>
-
+                <button
+                  onClick={handleOpenAdminLogin}
+                  className="text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title="परीक्षा प्रभारी / व्यवस्थापक लॉगिन"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>व्यवस्थापक प्रवेश (Admin Login)</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <span>•</span>
                 <button
                   onClick={() =>
                     setIsSettingsOpen(
@@ -2748,6 +2790,9 @@ export default function App() {
         }
         onUpdateAdmitCardAllotments={
           handleUpdateAdmitCardAllotments
+        }
+        onClearSheetData={
+          handleClearSheetData
         }
       />
 

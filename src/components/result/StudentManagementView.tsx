@@ -28,6 +28,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { ClassLevel } from '../../types';
+import { formatDisplayDate } from '../../utils/dateFormatter';
 import { FullStudentExamRecord, ExamType } from '../../types/resultTypes';
 import { computeStudentSummary, getStudentSubjects } from '../../utils/resultCalculator';
 import { SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
@@ -664,7 +665,7 @@ export const StudentManagementView: React.FC<StudentManagementViewProps> = ({
                       <td className="py-3 px-3 text-slate-600">
                         <div className="flex items-center gap-1 text-[11px] font-mono">
                           <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{st.dob || '15/07/2014'}</span>
+                          <span>{formatDisplayDate(st.dob) || '15-Jul-2014'}</span>
                         </div>
                         <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 mt-0.5">
                           <Phone className="w-3 h-3 text-slate-400" />

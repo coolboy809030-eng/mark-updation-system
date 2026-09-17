@@ -3,6 +3,7 @@ import { AppSettings, ClassLevel, TeacherAllotment, TeacherAccount } from '../ty
 import { SUBJECTS_BY_CLASS, ALL_SUBJECT_OPTIONS } from '../data/schoolConfig';
 import { CLASS_OPTIONS } from './ControlPanel';
 import { generateNextTeacherId, isTeacherIdUnique, findDuplicateTeacherPermissions } from '../utils/teacherAccount';
+import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from '../services/teacherSyncService';
 import {
   Shield,
   KeyRound,
@@ -29,7 +30,10 @@ import {
   UserCheck,
   UserX,
   Edit3,
-  UserPlus
+  UserPlus,
+  Cloud,
+  CloudUpload,
+  CloudDownload
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -62,6 +66,9 @@ interface SettingsModalProps {
   // Admit Card Subject Allotment (Req 5)
   admitCardAllotments: Record<ClassLevel, string[]>;
   onUpdateAdmitCardAllotments: (allotments: Record<ClassLevel, string[]>) => void;
+
+  // Destructive sheet data clearance (Admin Only)
+  onClearSheetData?: (targetClass: string) => Promise<void> | void;
 }
 
 type AdminTab = 'locks' | 'teachers' | 'admit_card' | 'password' | 'database';
@@ -83,7 +90,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   subjectAllotments,
   onUpdateSubjectAllotments,
   admitCardAllotments,
-  onUpdateAdmitCardAllotments
+  onUpdateAdmitCardAllotments,
+  onClearSheetData
 }) => {
   // Active Tab
   const [activeTab, setActiveTab] = useState<AdminTab>('locks');
@@ -102,6 +110,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return 0;
     }
   });
+
+  // Admin Destructive Clear State
+  const [clearTargetClass, setClearTargetClass] = useState<ClassLevel>('1');
+  const [isClearingSheet, setIsClearingSheet] = useState(false);
+  const [clearStatusMessage, setClearStatusMessage] = useState<string | null>(null);
+
+  // Cross-device Cloud Teacher Registry Sync State
+  const [isSyncingTeachersCloud, setIsSyncingTeachersCloud] = useState(false);
+  const [teacherCloudSyncStatus, setTeacherCloudSyncStatus] = useState<string | null>(null);
 
   // PIS Data Base State
   const [databaseUrl, setDatabaseUrl] = useState(settings.googleSheetApiUrl);
@@ -558,6 +575,74 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setCustomSubjectInput('');
   };
 
+  // Destructive Clear Google Sheet Data (Admin Only with Double-Confirmation)
+  const handleAdminClearSheet = async () => {
+    if (!onClearSheetData) return;
+    const confirm1 = window.confirm(
+      `[प्रशासक चेतावनी]: क्या आप वास्तव में Google Sheet से Class ${clearTargetClass} का सारा डेटा (Marks & Attendance) हटाना चाहते हैं? यह क्रिया वापस नहीं ली जा सकती!`
+    );
+    if (!confirm1) return;
+
+    const typed = window.prompt(
+      `सुरक्षा सत्यापन: डेटा स्थायी रूप से हटाने की पुष्टि करने के लिए "DELETE" टाइप करें:`
+    );
+    if (typed !== 'DELETE') {
+      alert('सत्यापन असफल: डेटा नहीं हटाया गया।');
+      return;
+    }
+
+    setIsClearingSheet(true);
+    setClearStatusMessage(null);
+    try {
+      await onClearSheetData(clearTargetClass);
+      setClearStatusMessage(`✅ Google Sheet से Class ${clearTargetClass} का डेटा सफलतापूर्वक साफ़ कर दिया गया।`);
+    } catch (e: any) {
+      setClearStatusMessage(`❌ त्रुटि: ${e?.message || 'डेटा साफ़ नहीं हो सका'}`);
+    } finally {
+      setIsClearingSheet(false);
+    }
+  };
+
+  // Cross-device Cloud Sync: Push Teacher Registry to Google Sheet (_TEACHERS)
+  const handlePushTeachersToCloud = async () => {
+    setIsSyncingTeachersCloud(true);
+    setTeacherCloudSyncStatus(null);
+    try {
+      const res = await saveTeacherRegistryToGAS(currentAccounts, teacherAllotments, databaseUrl);
+      if (res.success) {
+        setTeacherCloudSyncStatus(`✅ Google Sheet (_TEACHERS) में सफलतापूर्वक बैकअप सहेजा गया!`);
+      } else {
+        setTeacherCloudSyncStatus(`⚠️ सिंक चेतावनी: ${res.message}`);
+      }
+    } catch (err: any) {
+      setTeacherCloudSyncStatus(`❌ सिंक त्रुटि: ${err?.message || 'नेटवर्क समस्या'}`);
+    } finally {
+      setIsSyncingTeachersCloud(false);
+    }
+  };
+
+  // Cross-device Cloud Sync: Pull Teacher Registry from Google Sheet (_TEACHERS)
+  const handlePullTeachersFromCloud = async () => {
+    setIsSyncingTeachersCloud(true);
+    setTeacherCloudSyncStatus(null);
+    try {
+      const res = await fetchTeacherRegistryFromGAS(databaseUrl);
+      if (res.success && res.accounts.length > 0) {
+        if (onUpdateTeacherAccounts) {
+          onUpdateTeacherAccounts(res.accounts);
+        }
+        onUpdateTeacherAllotments(res.allotments);
+        setTeacherCloudSyncStatus(`✅ Google Sheet (_TEACHERS) से ${res.accounts.length} शिक्षक लोड हुए!`);
+      } else {
+        setTeacherCloudSyncStatus(`ℹ️ ${res.message || 'गूगल शीट में कोई नया शिक्षक रिकॉर्ड नहीं मिला।'}`);
+      }
+    } catch (err: any) {
+      setTeacherCloudSyncStatus(`❌ लोड त्रुटि: ${err?.message || 'नेटवर्क समस्या'}`);
+    } finally {
+      setIsSyncingTeachersCloud(false);
+    }
+  };
+
   return (
     <div 
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fade-in"
@@ -798,6 +883,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* Cross-Device Central Registry Cloud Sync Banner */}
+              <div className="p-3.5 bg-gradient-to-r from-teal-900 via-indigo-950 to-slate-900 border border-teal-500/30 rounded-xl text-xs text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/40 shrink-0">
+                    <Cloud className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-teal-300 block text-xs">
+                      सेंट्रल गूगल शीट सिंक (_TEACHERS Tab)
+                    </span>
+                    <span className="text-[11px] text-slate-300">
+                      सभी शिक्षक व आवंटन सीधे गूगल शीट में सुरक्षित रहते हैं। शिक्षक किसी भी डिवाइस/लैपटॉप पर अपना आवंटन देख सकते हैं।
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handlePullTeachersFromCloud}
+                    disabled={isSyncingTeachersCloud}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-400/40 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                    title="गूगल शीट _TEACHERS से ताज़ा डेटा लोड करें"
+                  >
+                    <CloudDownload className={`w-3.5 h-3.5 ${isSyncingTeachersCloud ? 'animate-bounce' : ''}`} />
+                    <span>शीट से लोड करें</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePushTeachersToCloud}
+                    disabled={isSyncingTeachersCloud}
+                    className="px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                    title="वर्तमान आवंटन को गूगल शीट _TEACHERS में सहेजें"
+                  >
+                    <CloudUpload className={`w-3.5 h-3.5 ${isSyncingTeachersCloud ? 'animate-bounce' : ''}`} />
+                    <span>शीट में सहेजें</span>
+                  </button>
+                </div>
+              </div>
+              {teacherCloudSyncStatus && (
+                <div className="p-2.5 rounded-lg bg-slate-900 text-xs font-semibold text-teal-200 border border-teal-500/30">
+                  {teacherCloudSyncStatus}
+                </div>
+              )}
 
               {/* SECTION A: TEACHER ACCOUNTS (Module 3A) */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
@@ -1629,6 +1758,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </a>
                 </div>
               </div>
+
+              {/* Admin Destructive Zone: Clear Google Sheet Data */}
+              {onClearSheetData && (
+                <div className="p-4 bg-rose-50/90 border border-rose-200 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 text-rose-800 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    <span>व्यवस्थापक सुरक्षा क्षेत्र: गूगल शीट डेटा रीसेट (Clear Google Sheet Data)</span>
+                  </div>
+                  <p className="text-[11px] text-rose-700 leading-relaxed">
+                    यह फ़ंक्शन केवल व्यवस्थापक (Admin) के लिए सुरक्षित है। शिक्षक पोर्टल से यह विकल्प हटा दिया गया है। 
+                    किसी विशिष्ट कक्षा का डेटा नया सत्र शुरू करते समय या टेस्ट डेटा हटाने के लिए ही इसे चलाएँ।
+                  </p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-semibold text-rose-900">कक्षा चुनें:</label>
+                      <select
+                        value={clearTargetClass}
+                        onChange={(e) => setClearTargetClass(e.target.value as ClassLevel)}
+                        className="bg-white border border-rose-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800"
+                      >
+                        {CLASS_OPTIONS.map(c => (
+                          <option key={c} value={c}>Class {c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAdminClearSheet}
+                      disabled={isClearingSheet}
+                      className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isClearingSheet ? 'डेटा हटाया जा रहा है...' : 'चुनी हुई कक्षा का डेटा साफ़ करें'}</span>
+                    </button>
+                  </div>
+                  {clearStatusMessage && (
+                    <div className="text-xs font-semibold p-2.5 bg-white rounded-lg border border-rose-200 text-rose-900">
+                      {clearStatusMessage}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end pt-2">
                 <button

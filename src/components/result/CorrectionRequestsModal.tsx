@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, X } from 'lucide-react';
 import { CorrectionRequest } from '../../utils/correctionRequests';
+import { formatDisplayDateTime } from '../../utils/dateFormatter';
 
 interface CorrectionRequestsModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export const CorrectionRequestsModal: React.FC<CorrectionRequestsModalProps> = (
                     <td className="p-2 font-mono">{request.urn}</td>
                     <td className="p-2">Class {request.className} / {request.section}<br />{request.subject} / {request.segment}</td>
                     <td className="p-2 font-bold">{request.oldValue} → {request.requestedValue || 'Blank'}</td>
-                    <td className="p-2 max-w-48">{request.reason}<br /><span className="text-slate-400">{new Date(request.createdAt).toLocaleString()}</span></td>
+                    <td className="p-2 max-w-48">{request.reason}<br /><span className="text-slate-400 font-mono text-[11px]">{formatDisplayDateTime(request.createdAt)}</span></td>
                     <td className="p-2 font-bold">{request.status}</td>
                     <td className="p-2">
                       {request.status === 'Pending' && (

@@ -2,6 +2,7 @@ import { FullStudentExamRecord } from '../types/resultTypes';
 import { SheetSubmissionRecord } from '../types';
 import { getInitialClassExamRecords } from '../data/mockResultData';
 import { getStudentURN, normalizeURN } from './studentIdentity';
+import { formatDisplayTime } from './dateFormatter';
 
 export interface SyncStatusInfo {
   state: 'idle' | 'syncing' | 'synced' | 'offline_saved' | 'error';
@@ -417,11 +418,7 @@ class InstantSyncBridge {
 
       this.pendingQueue.shift();
 
-      const nowStr = new Date().toLocaleTimeString('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
+      const nowStr = formatDisplayTime(new Date());
 
       this.notify({
         state: 'synced',

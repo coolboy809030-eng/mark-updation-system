@@ -263,13 +263,247 @@ function createPeaceSchoolWorkbook() {
     }
   });
 
-  SpreadsheetApp.getUi().alert("Success! All 13 Peace International School class sheets have been generated with colored headers and centered column alignment.");
+  // Create or configure central _TEACHERS registry tab
+  createOrSetupTeachersSheet(ss);
+
+  SpreadsheetApp.getUi().alert("Success! All 13 Peace International School class sheets and central _TEACHERS registry tab have been generated with colored headers and centered column alignment.");
+}
+
+/**
+ * Creates or formats the central _TEACHERS registry sheet
+ */
+function createOrSetupTeachersSheet(ss) {
+  var sheet = ss.getSheetByName("_TEACHERS");
+  if (!sheet) {
+    sheet = ss.insertSheet("_TEACHERS");
+  }
+
+  var teacherHeaders = [
+    "Teacher ID",
+    "Teacher Name",
+    "Contact / Mobile",
+    "Status",
+    "Classes",
+    "Sections",
+    "Subjects",
+    "Last Updated"
+  ];
+
+  var currentData = sheet.getDataRange().getValues();
+  if (currentData.length < 1 || currentData[0][0] !== "Teacher ID") {
+    sheet.getRange(1, 1, 1, teacherHeaders.length).setValues([teacherHeaders]);
+  }
+
+  // Format header: Dark Slate #1e293b, white text, bold, height 36px
+  sheet.setRowHeight(1, 36);
+  var headerRange = sheet.getRange(1, 1, 1, teacherHeaders.length);
+  headerRange.setBackground("#1e293b");
+  headerRange.setFontColor("#FFFFFF");
+  headerRange.setFontWeight("bold");
+  headerRange.setFontSize(10);
+  headerRange.setHorizontalAlignment("center");
+  headerRange.setVerticalAlignment("middle");
+  sheet.setFrozenRows(1);
+
+  sheet.setColumnWidth(1, 130); // Teacher ID
+  sheet.setColumnWidth(2, 180); // Teacher Name
+  sheet.setColumnWidth(3, 140); // Contact
+  sheet.setColumnWidth(4, 90);  // Status
+  sheet.setColumnWidth(5, 140); // Classes
+  sheet.setColumnWidth(6, 120); // Sections
+  sheet.setColumnWidth(7, 260); // Subjects
+  sheet.setColumnWidth(8, 160); // Last Updated
+
+  return sheet;
+}
+
+function getTeachersSheet(ss) {
+  var sheet = ss.getSheetByName("_TEACHERS");
+  if (!sheet) {
+    sheet = createOrSetupTeachersSheet(ss);
+  }
+  return sheet;
+}
+
+function handleGetTeachers() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getTeachersSheet(ss);
+    var data = sheet.getDataRange().getValues();
+
+    if (data.length < 2) {
+      return jsonResponse({
+        status: "success",
+        accounts: [],
+        allotments: [],
+        message: "No teachers configured yet in _TEACHERS sheet."
+      });
+    }
+
+    var accounts = [];
+    var allotments = [];
+
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var teacherId = String(row[0] || '').trim();
+      var teacherName = String(row[1] || '').trim();
+      if (!teacherId && !teacherName) continue;
+
+      var contact = String(row[2] || '').trim();
+      var statusStr = String(row[3] || 'ACTIVE').trim().toUpperCase();
+      var active = statusStr !== 'INACTIVE' && statusStr !== 'FALSE';
+
+      var classesRaw = String(row[4] || '').trim();
+      var sectionsRaw = String(row[5] || '').trim();
+      var subjectsRaw = String(row[6] || '').trim();
+      var lastUpdated = String(row[7] || '').trim();
+
+      accounts.push({
+        id: 'tch_acc_' + teacherId.replace(/[^a-zA-Z0-9]/g, '_'),
+        teacherId: teacherId,
+        teacherName: teacherName,
+        contact: contact,
+        active: active,
+        updatedAt: lastUpdated || new Date().toISOString()
+      });
+
+      var classList = classesRaw ? classesRaw.split(',').map(function(c) { return c.trim(); }).filter(Boolean) : [];
+      var secList = sectionsRaw ? sectionsRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : ['A'];
+      var subList = subjectsRaw ? subjectsRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+
+      if (classList.length > 0) {
+        classList.forEach(function(cls) {
+          allotments.push({
+            id: 'allot_' + teacherId + '_' + cls,
+            teacherId: teacherId,
+            teacherName: teacherName,
+            classLevel: cls,
+            sections: secList.length > 0 ? secList : ['A'],
+            subjects: subList,
+            active: active
+          });
+        });
+      } else {
+        // Fallback single entry
+        allotments.push({
+          id: 'allot_' + teacherId,
+          teacherId: teacherId,
+          teacherName: teacherName,
+          classLevel: '10',
+          sections: secList,
+          subjects: subList,
+          active: active
+        });
+      }
+    }
+
+    return jsonResponse({
+      status: "success",
+      accounts: accounts,
+      allotments: allotments,
+      count: accounts.length
+    });
+  } catch (err) {
+    return jsonResponse({
+      status: "error",
+      message: "Failed to read _TEACHERS sheet: " + err.message
+    });
+  }
+}
+
+function handleSaveTeachers(payload) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = getTeachersSheet(ss);
+
+    var accounts = payload.accounts || [];
+    var allotments = payload.allotments || [];
+
+    // Clear old data rows (keep header row 1)
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+    }
+
+    if (accounts.length === 0) {
+      return jsonResponse({
+        status: "success",
+        message: "Teacher registry cleared in Google Sheet."
+      });
+    }
+
+    var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "GMT+5:30", "dd-MMM-yyyy hh:mm a");
+    var rowsToWrite = [];
+
+    accounts.forEach(function(acc) {
+      var tId = (acc.teacherId || '').trim();
+      var tName = (acc.teacherName || '').trim();
+      if (!tId && !tName) return;
+
+      var teacherAllots = allotments.filter(function(a) {
+        return (a.teacherId && a.teacherId.trim().toUpperCase() === tId.toUpperCase()) ||
+               (!a.teacherId && a.teacherName && a.teacherName.trim().toLowerCase() === tName.toLowerCase());
+      });
+
+      var classesSet = {};
+      var sectionsSet = {};
+      var subjectsSet = {};
+
+      teacherAllots.forEach(function(a) {
+        if (a.classLevel) classesSet[a.classLevel] = true;
+        if (Array.isArray(a.sections)) {
+          a.sections.forEach(function(s) { sectionsSet[s] = true; });
+        }
+        if (Array.isArray(a.subjects)) {
+          a.subjects.forEach(function(sub) { subjectsSet[sub] = true; });
+        }
+      });
+
+      var classesStr = Object.keys(classesSet).join(', ');
+      var sectionsStr = Object.keys(sectionsSet).join(', ');
+      var subjectsStr = Object.keys(subjectsSet).join(', ');
+
+      rowsToWrite.push([
+        tId,
+        tName,
+        acc.contact || '',
+        acc.active !== false ? 'ACTIVE' : 'INACTIVE',
+        classesStr,
+        sectionsStr,
+        subjectsStr,
+        nowStr
+      ]);
+    });
+
+    if (rowsToWrite.length > 0) {
+      sheet.getRange(2, 1, rowsToWrite.length, 8).setValues(rowsToWrite);
+      // Center-align columns 1, 3, 4, 5, 6, 8; Left-align Name & Subjects
+      sheet.getRange(2, 1, rowsToWrite.length, 8).setHorizontalAlignment("center");
+      sheet.getRange(2, 2, rowsToWrite.length, 1).setHorizontalAlignment("left"); // Name
+      sheet.getRange(2, 7, rowsToWrite.length, 1).setHorizontalAlignment("left"); // Subjects
+    }
+
+    return jsonResponse({
+      status: "success",
+      savedCount: rowsToWrite.length,
+      message: "Successfully synchronized " + rowsToWrite.length + " teacher accounts & allotments to Google Sheet (_TEACHERS)."
+    });
+  } catch (err) {
+    return jsonResponse({
+      status: "error",
+      message: "Failed to save teachers to _TEACHERS sheet: " + err.message
+    });
+  }
 }
 
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) || "ping";
   var targetClass = (e && e.parameter && e.parameter.class) || "10";
   
+  if (action === "getTeachers" || action === "getSchoolConfig") {
+    return handleGetTeachers();
+  }
+
   if (action === "getStudents") {
     return handleGetStudents(targetClass);
   }
@@ -297,6 +531,10 @@ function doPost(e) {
       return handleSaveMarks(payload.records);
     }
 
+    if (payload.action === "saveTeachers") {
+      return handleSaveTeachers(payload);
+    }
+
     if (payload.action === "updateStudentDetails") {
       return handleUpdateStudentDetails(payload.class, payload.student);
     }
@@ -307,7 +545,7 @@ function doPost(e) {
 
     return jsonResponse({ status: "error", message: "Unsupported or malformed request." });
   } catch (err) {
-    return jsonResponse({ status: "error", message: "Malformed request payload." });
+    return jsonResponse({ status: "error", message: "Malformed request payload: " + err.message });
   }
 }
 

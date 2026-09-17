@@ -9,6 +9,7 @@ import {
   getStudentSubjects 
 } from './resultCalculator';
 import { SCHOOL_NAME, SCHOOL_SUBTITLE, ACADEMIC_SESSION } from '../data/schoolConfig';
+import { formatDisplayDate } from './dateFormatter';
 
 interface TabulationExportParams {
   classLevel: string;
@@ -188,7 +189,7 @@ export function exportTabulationToPdf({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Students: ${students.length} | Date: ${new Date().toLocaleDateString('en-IN')}`, 289, 18, { align: 'right' });
+      doc.text(`Students: ${students.length} | Date: ${formatDisplayDate(new Date())}`, 289, 18, { align: 'right' });
 
       // Footer
       const pageStr = `Page ${data.pageNumber} of ${(doc as any).internal.getNumberOfPages()}`;
@@ -508,7 +509,7 @@ export function exportBlankTabulationToPdf({
       doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
       doc.text(
-        `Generated from Examination Authority on ${new Date().toLocaleDateString('en-IN')} | Page ${currentPage} of ${pageCount}`,
+        `Generated from Examination Authority on ${formatDisplayDate(new Date())} | Page ${currentPage} of ${pageCount}`,
         14,
         204
       );
@@ -547,7 +548,7 @@ export function exportBlankTabulationToExcel({
   worksheetData.push([SCHOOL_NAME]);
   worksheetData.push([`${SCHOOL_SUBTITLE} • Session ${session}`]);
   worksheetData.push([`BLANK TABULATION REGISTER FOR MANUAL MARKS ENTRY — CLASS ${classLevel.toUpperCase()} (${segmentTitle})`]);
-  worksheetData.push([`Total Students: ${students.length} | Generated: ${new Date().toLocaleDateString('en-IN')}`]);
+  worksheetData.push([`Total Students: ${students.length} | Generated: ${formatDisplayDate(new Date())}`]);
   worksheetData.push([]); // blank row
 
   const headerRow: string[] = ['Roll No', 'Admission No', 'Student Name', "Father's Name", '2nd Language'];

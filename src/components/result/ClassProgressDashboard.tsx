@@ -3,6 +3,7 @@ import { ClassLevel } from '../../types';
 import { SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
 import { SystemControlConfig } from '../../types/resultTypes';
 import { Users, CheckCircle2, Clock, BarChart3, AlertCircle, ArrowRight } from 'lucide-react';
+import { formatDisplayDateTime } from '../../utils/dateFormatter';
 
 interface ClassProgressDashboardProps {
   onSelectClass: (cls: ClassLevel) => void;
@@ -63,7 +64,7 @@ export const ClassProgressDashboard: React.FC<ClassProgressDashboardProps> = ({
             </div>
             <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Submission Deadline: <strong>{systemConfig.marksEntryDeadline ? new Date(systemConfig.marksEntryDeadline).toLocaleString('en-IN') : 'No deadline set'}</strong>
+              Submission Deadline: <strong>{systemConfig.marksEntryDeadline ? formatDisplayDateTime(systemConfig.marksEntryDeadline) : 'No deadline set'}</strong>
             </p>
           </div>
         </div>

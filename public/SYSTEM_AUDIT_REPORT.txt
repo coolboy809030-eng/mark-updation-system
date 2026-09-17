@@ -1,0 +1,198 @@
+================================================================================
+ACADEMIC HERO / MARK UPDATION SYSTEM - COMPREHENSIVE TECHNICAL AUDIT REPORT
+Peace International School Examination & Marks Management Suite
+Date of Audit: September 17, 2026
+Source Repository: coolboy809030-eng/mark-updation-system
+Runtime: React 18 + Vite + TypeScript + Tailwind CSS + Google Apps Script (Code.gs)
+Status: AUDIT REPORT ONLY (NO CODE MODIFIED)
+================================================================================
+
+EXECUTIVE SUMMARY
+-----------------
+A deep architectural and dependency audit was performed on the existing web application
+and its companion Google Apps Script backend (`apps-script/Code.gs`).
+
+CRITICAL CORE FINDINGS:
+1. THE LOCALSTORAGE TRAP:
+   All Teacher Accounts, Teacher Allotments (Class/Section/Subject), Master Subject
+   Curriculum, Admin PIN, Segment Locks, and System Controls (Marks Entry Status,
+   Deadlines, Working Days) are saved solely in browser `localStorage`.
+   Zero institutional configuration is stored in Google Sheets or Google Apps Script.
+
+2. CROSS-DEVICE PERSISTENCE FAILURE:
+   When an Admin creates a Teacher ID and assigns them to Class 5-A Hindi on Device A,
+   it is stored only in Device A's `localStorage`. When the teacher opens the portal link
+   on Device B (mobile or laptop), Device B's `localStorage` is completely empty.
+   Result: The teacher sees "No Authorized Classes" or is locked out from entering marks.
+
+3. DISCONNECTED TEACHER LINK GENERATION:
+   The Teacher Link Hub generates a generic URL (`?portal=teacher`) rather than a
+   personalized link with a teacher token (e.g., `?portal=teacher&teacherId=TCH-2026-001`).
+   Even if the link included the ID, Device B lacks the account and allotment registry.
+
+4. GHOST BACKEND API CALLS:
+   The frontend queries `?action=getSystemControl` to check system status, but `Code.gs`
+   contains no handler for this action. It falls through to a generic ping response,
+   failing to sync any locks, deadlines, or working days.
+
+5. DUAL SUBJECT ASSIGNMENT PARADIGMS:
+   Two competing modules exist:
+   - Module A: SettingsModal.tsx ('teachers' & 'admit_card' tabs) -> Teacher Allotment
+   - Module B: ClassSubjectAllotmentModal.tsx -> Class Curriculum Master
+   They use different storage keys and lack a single source of truth.
+
+--------------------------------------------------------------------------------
+PART 1: GOOGLE SHEET ARCHITECTURE & TABS AUDIT
+--------------------------------------------------------------------------------
+Current Workbook Tabs (Created by `createPeaceSchoolWorkbook()` in `Code.gs`):
+- Exactly 13 Class Tabs:
+  Class_Nursery, Class_LKG, Class_UKG, Class_1, Class_2, Class_3, Class_4,
+  Class_5, Class_6, Class_7, Class_8, Class_9, Class_10.
+
+Tab Column Structure:
+- Columns 1-12 (Base Profile):
+  Col 1 (A): S.No
+  Col 2 (B): Roll No
+  Col 3 (C): Admission No (Authoritative Student URN)
+  Col 4 (D): Student Name
+  Col 5 (E): Father Name
+  Col 6 (F): Mother Name
+  Col 7 (G): DOB
+  Col 8 (H): Gender
+  Col 9 (I): Category
+  Col 10 (J): Mobile No
+  Col 11 (K): Optional Subject ('Urdu' | 'Sanskrit')
+  Col 12 (L): Photo URL
+- Columns 13+ (Marks & Attendance):
+  For each subject: PT-1, PT-2, HY-WRT, PT-3, PT-4, AE-WRT
+  Last 2 columns: Attendance-HY, Attendance-AE
+
+Safety & Extensibility:
+- Existing Class tabs must NOT be polluted with metadata rows.
+- Two new dedicated administrative tabs can be added safely without breaking class data:
+  1. `_CONFIG`: Key-value store for system controls, deadlines, working days, and syllabus.
+  2. `_TEACHERS`: Store for teacher accounts, active status, and class/subject allotments.
+
+--------------------------------------------------------------------------------
+PART 2: LOCALSTORAGE & CONFIGURATION CENSUS
+--------------------------------------------------------------------------------
+| Key Name                        | Scope           | Cross-Device? | Current Impact / Defect                                      |
+|---------------------------------|-----------------|---------------|--------------------------------------------------------------|
+| pis_teacher_accounts_v1         | Shared School   | NO            | Teacher IDs vanish on other devices; portal cannot resolve ID|
+| pis_teacher_allotments_v1       | Shared School   | NO            | Teachers see "No Authorized Classes" on their phones         |
+| pis_class_subject_allotments_v1 | Shared School   | NO            | Class syllabus customizations revert on other devices        |
+| pis_admit_card_allotments_v1   | Shared School   | NO            | Redundant copy of class subject curriculum                   |
+| pis_system_control_config_v1    | Shared School   | NO            | Admin freezing portal does NOT freeze portal on teacher phone|
+| pis_segment_locks_v1            | Shared School   | NO            | Exam segment locks do not apply to teacher devices           |
+| pis_admin_pin_v1                | Shared School   | NO            | Admin PIN change only applies to the machine changed on      |
+| pis_official_signatures_v1      | Shared School   | NO            | Signatures/stamps uploaded on one PC do not print on others  |
+| pis_correction_requests_v1      | Shared School   | NO            | Mark edit requests sent by teachers invisible to Admin on PC |
+| pis_markupdation_settings_v1    | Shared School   | NO            | Web App URL must be manually configured on every device      |
+| pis_active_teacher_id           | Local Device    | YES (local)   | Remembers last active teacher on this specific browser       |
+| pis_draft_*                     | Local Device    | YES (local)   | Unsubmitted keystroke scratchpad in Marks Table              |
+| pis_photo_${urn}                | Local Cache     | NO            | Offline student photo base64 cache                           |
+| pis_exam_results_${cls}_2025    | Local Cache     | YES (cache)   | Cached class records for instant load                        |
+
+--------------------------------------------------------------------------------
+PART 3: DUAL SUBJECT ASSIGNMENT MODULES (OVERLAP & CONFLICT)
+--------------------------------------------------------------------------------
+MODULE A: Teacher Allotment & Permissions
+- File: `src/components/SettingsModal.tsx` (Tab: 'teachers')
+- Target: Human permissions (Teacher -> Class/Section/Subject)
+- State: `teacherAllotments` in `App.tsx` (line 448)
+- Storage: `localStorage['pis_teacher_allotments_v1']`
+- Backend API: None (zero network calls)
+
+MODULE B: Class Curriculum Master
+- File: `src/components/result/ClassSubjectAllotmentModal.tsx`
+- Target: Academic syllabus (Class -> Subjects evaluated)
+- State: `subjectAllotments` in `App.tsx` (line 264)
+- Storage: `localStorage['pis_class_subject_allotments_v1']`
+- Backend API: None (zero network calls)
+
+How they interact in Teacher Portal (`App.tsx` lines 706-722):
+`authorizedSubjects = teacherSubs.filter(sub => masterSubs.includes(sub));`
+They do not overwrite each other directly, but they form a fragile two-stage filter.
+If Module B is updated on Device A, Device B still has old defaults, causing
+mismatched subject lists for the same teacher.
+REDUNDANT DUPLICATE IDENTIFIED:
+The sub-tab "Admit Card Subject Allotment" inside `SettingsModal.tsx` is an inferior,
+redundant duplicate of Module B (`ClassSubjectAllotmentModal.tsx`).
+
+--------------------------------------------------------------------------------
+PART 4: TEACHER PORTAL HEADER & NAVIGATION AUDIT
+--------------------------------------------------------------------------------
+1. School Crest & Branding: Essential, keep visible.
+2. Lock Status Pill (`Submissions Locked`): Essential, keep visible.
+3. Realtime Sync Status Bar: Essential, keep visible.
+4. Online/Offline Network Pill: Essential, keep visible.
+5. PIS Database Status Pill: Wrapped in `isAdminSessionActive`, hidden from teachers.
+6. Settings Gear Button: Wrapped in `isAdminSessionActive`, hidden from teachers.
+7. "Download .txt Report" Button: In `Header.tsx` lines 131-140. ALWAYS VISIBLE TO EVERYONE.
+   -> DEFECT: Irrelevant and confusing to teachers. Must be hidden from teacher portal.
+8. "Rules" (Guide) Button: Helpful CBSE guide, keep visible.
+9. "नेविगेशन पैनल" (Result Portal Switch): Prompts for Admin PIN when clicked by teachers.
+   -> DEFECT: Confusing to teachers. Should be hidden or restricted to Admin mode.
+10. Admin Login Button: Allows Examination Incharge to authenticate on any device.
+
+--------------------------------------------------------------------------------
+PART 5: ROLE & SECURITY ARCHITECTURE AUDIT
+--------------------------------------------------------------------------------
+- Admin Authentication:
+  Purely client-side check against `adminPin` (stored in `localStorage['pis_admin_pin_v1']`,
+  default '1234'). Active session kept in `sessionStorage['pis_admin_session_active']`.
+- Teacher Authentication:
+  Purely client-side string match of `selectedTeacherId` against `teacherAccounts`.
+  No passwords, tokens, or PINs exist for teachers.
+- Server Verification:
+  ZERO SERVER VERIFICATION. In `apps-script/Code.gs`, `handleSaveMarks` accepts any
+  payload and writes directly to cells without verifying teacher identity or permissions.
+- Direct Route Protection:
+  Any client issuing an HTTP POST to the Web App URL can overwrite marks without authentication.
+
+--------------------------------------------------------------------------------
+PART 6: MIGRATION STATUS & ROOT CAUSE EVALUATION
+--------------------------------------------------------------------------------
+VERDICT: EXISTING BUG (Pre-existing Architectural Limitation).
+Evidence:
+- The reliance on browser `localStorage` for institutional multi-user data was authored
+  in the original upstream repository (`coolboy809030-eng/mark-updation-system`).
+- `Code.gs` never contained endpoints for teacher management or system control.
+- Google AI Studio migration cleanly preserved all functionality, builds, and logic.
+
+--------------------------------------------------------------------------------
+PART 7: CONSOLIDATION & PRIMARY IMPLEMENTATION MAPPING
+--------------------------------------------------------------------------------
+In accordance with system priority (Result Generator is PRIMARY MASTER):
+1. `ClassSubjectAllotmentModal.tsx` -> PRIMARY MASTER for Class Syllabus/Curriculum.
+   (Deprecate 'Admit Card' sub-tab in `SettingsModal.tsx`).
+2. `AdminSettingsModal.tsx` -> PRIMARY MASTER for System Controls, Deadlines,
+   Working Days, Admin PIN, and Google Apps Script URL.
+3. `GoogleSheetDiagnosticModal.tsx` -> PRIMARY MASTER for Sheet connectivity diagnostics.
+4. `MarksTable.tsx` & `ControlPanel.tsx` -> Dedicated focused bulk entry engine for Teachers.
+5. `TabulationSheet.tsx` & `ReportCard.tsx` -> Dedicated reporting engine for Admin.
+
+--------------------------------------------------------------------------------
+PART 8: MINIMAL ARCHITECTURE-PRESERVING RESOLUTION STRATEGY
+--------------------------------------------------------------------------------
+Step 1: Google Sheet Backend Extension (`apps-script/Code.gs`)
+- Create `_CONFIG` and `_TEACHERS` tabs in `createPeaceSchoolWorkbook()`.
+- Add `doGet?action=getSchoolConfig` returning:
+  `{ systemConfig, subjectAllotments, teacherAccounts, teacherAllotments }`.
+- Add `doPost` handlers:
+  - `action: "saveSchoolConfig"` (writes locks, deadlines, working days)
+  - `action: "saveTeacherRegistry"` (writes teacher IDs, accounts, and allotments)
+
+Step 2: Frontend Boot Hydration (`src/App.tsx`)
+- On application boot, call `getSchoolConfig`.
+- Hydrate React states in memory; retain `localStorage` solely as offline cache.
+
+Step 3: Personalized Teacher Links (`TeacherLinkSyncHubModal.tsx`)
+- Generate parameterized links: `${baseUrl}?portal=teacher&teacherId=${teacherId}`.
+- Auto-selects the teacher and loads their pre-allotted classes and subjects seamlessly.
+
+Step 4: UI Cleanliness (`Header.tsx`)
+- Hide "Download .txt Report" and Result Portal switch buttons when `portal=teacher`.
+================================================================================
+END OF AUDIT REPORT
+================================================================================

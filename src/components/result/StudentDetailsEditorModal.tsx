@@ -21,6 +21,7 @@ import {
 import { ClassLevel } from '../../types';
 import { FullStudentExamRecord } from '../../types/resultTypes';
 import { getStudentURN, normalizeURN } from '../../utils/studentIdentity';
+import { formatDisplayDate } from '../../utils/dateFormatter';
 
 interface StudentDetailsEditorModalProps {
   isOpen: boolean;
@@ -612,7 +613,7 @@ export const StudentDetailsEditorModal: React.FC<StudentDetailsEditorModalProps>
                             {st.motherName || '—'}
                           </td>
                           <td className="px-3 py-2 border-r border-slate-200 font-mono text-slate-600">
-                            {st.dob || '—'}
+                            {formatDisplayDate(st.dob) || '—'}
                           </td>
                           <td className="px-3 py-2 border-r border-slate-200">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

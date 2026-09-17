@@ -59,7 +59,6 @@ interface ControlPanelProps {
 
   onLoadStudents: () => void;
   onClearInputs: () => void;
-  onClearSheetData?: () => void;
   isLoading: boolean;
   hasLoadedStudents: boolean;
   isPermissionValid: boolean;
@@ -526,18 +525,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Clear Inputs</span>
-            </button>
-          )}
-
-          {onClearSheetData && (
-            <button
-              type="button"
-              onClick={onClearSheetData}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 transition-colors"
-              title="Clear all marks and attendance values already stored in the Google Sheet for the selected class"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear Sheet Data</span>
             </button>
           )}
 

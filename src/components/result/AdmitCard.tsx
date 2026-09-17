@@ -11,6 +11,7 @@ import { OfficialSignaturesModal } from './OfficialSignaturesModal';
 import { getStudentURN } from '../../utils/studentIdentity';
 import { formatPhotoUrl, getStudentPhotoUrl } from '../../utils/photoMapping';
 import { getStudentEvaluationCurriculum } from '../../utils/subjectCurriculum';
+import { formatDisplayDate } from '../../utils/dateFormatter';
 
 interface AdmitCardProps {
   student: FullStudentExamRecord;
@@ -396,7 +397,7 @@ export const AdmitCard: React.FC<AdmitCardProps> = ({
 
             <div className="flex items-center">
               <span className="w-24 text-slate-600 font-medium">Date of Birth:</span>
-              <span className="font-medium text-slate-800">{student.dob || 'N/A'}</span>
+              <span className="font-medium text-slate-800">{formatDisplayDate(student.dob) || 'N/A'}</span>
             </div>
             <div className="flex items-center">
               <span className="w-20 text-slate-600 font-medium">Opt. Subject:</span>
@@ -516,7 +517,7 @@ export const AdmitCard: React.FC<AdmitCardProps> = ({
                         )}
                       </td>
                       <td className="py-1 px-2 text-center font-mono font-semibold text-slate-900 border-r border-[#d1d5db]">
-                        {item.date || '—'}
+                        {formatDisplayDate(item.date) || '—'}
                       </td>
                       <td className="py-1 px-2 text-center font-medium text-slate-700 border-r border-[#d1d5db]">
                         {item.day || '—'}
