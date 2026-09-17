@@ -1,0 +1,1060 @@
+================================================================================
+ACADEMIC HERO (FORMERLY "MARK UPDATION") - COMPLETE TECHNICAL AUDIT REPORT
+================================================================================
+Generated Date: Current Repository Baseline Audit
+Project Name: Mark Updation (Rebranding: Academic Hero)
+Application Architecture: Client-Side React SPA (Vite + TypeScript + Tailwind CSS)
+Core Integration: Google Apps Script (GAS) Web App + Google Sheets Database
+Authoritative Audit Scope: 26 Comprehensive Dimensions (Strictly As-Is Analysis)
+================================================================================
+
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+ 1. Complete Folder and File Structure
+ 2. Every Major React Page / Component
+ 3. Every Utility / Service / Helper
+ 4. Every TypeScript Type / Interface / Model
+ 5. Every Google Apps Script Function / API Endpoint
+ 6. Every Google Sheet-Related Function & Schema
+ 7. Every LocalStorage & SessionStorage Key Used
+ 8. Every Authentication / Login-Related File & Function
+ 9. Every Admin-Related Module & Capability
+10. Every Teacher-Related Module & Capability
+11. Every Student-Related Module & Data Structure
+12. Every Mark Entry Module & Validation Engine
+13. Every Attendance-Related Module & Policy
+14. Every Subject Allocation Module & Inheritance Flow
+15. Every Result Generation Module & Calculation Engine
+16. Every Broadsheet / Tabulation Module & Export Mechanism
+17. Every Admit Card Module & Generation Pipeline
+18. Every Report Card / Marks Card Module & Bilingual Rendering
+19. Every Print / Download / Export Module
+20. Every Settings & Configuration Module
+21. Every Data-Sync / Bridge / Cache Mechanism
+22. Handling of Optional Subjects (Urdu, Sanskrit, etc.)
+23. Handling of Class-Subject Mapping & Overrides
+24. Handling of Teacher-Subject Allocation & Access Control
+25. Handling of Roles, Permissions, and Passwords
+26. Known Architectural Bottlenecks, Coupling & Security/Scalability Risks
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. COMPLETE FOLDER AND FILE STRUCTURE
+--------------------------------------------------------------------------------
+The project is organized in a standard Vite + React + TypeScript structure:
+
+/
+├── index.html                           (HTML5 Entry point, Title: "Student Marks & Attendance Portal")
+├── package.json                         (Project dependencies, scripts)
+├── vite.config.ts                       (Vite bundler configuration)
+├── tsconfig.json                        (TypeScript configuration)
+├── tsconfig.app.json                    (App-specific TS compiler options)
+├── tsconfig.node.json                   (Node TS options)
+├── tailwind.config.js                   (Tailwind CSS design token configuration)
+├── postcss.config.js                    (PostCSS plugins)
+├── metadata.json                        (AI Studio platform configuration & permissions)
+└── src/
+    ├── main.tsx                         (ReactDOM root mount point)
+    ├── App.tsx                          (Root application controller, mode router, global state bus)
+    ├── index.css                        (Global styles, Tailwind directives, print media rules)
+    ├── types.ts                         (Primary domain types for portal, entries, settings)
+    │
+    ├── types/
+    │   └── resultTypes.ts               (Result engine, examination records, tabulation, admit cards)
+    │
+    ├── data/
+    │   └── schoolConfig.ts              (Institutional metadata, default rosters, base subject maps)
+    │
+    ├── utils/
+    │   ├── instantSyncBridge.ts         (0ms event bus, local storage master store, background GAS sync)
+    │   ├── googleSheetFetcher.ts        (HTTP client for GAS doGet/doPost, URL cleaning, CORS diagnostics)
+    │   ├── resultCalculator.ts          (CBSE/State board grading, percentage, dual-term aggregation, ranking)
+    │   ├── studentSubjectDetector.ts    (Unbiased, explicit key optional subject detector)
+    │   ├── tabulationExport.ts          (A4 Landscape PDF & multi-tab Excel tabulation registers)
+    │   ├── pdfExport.ts                 (html2canvas-pro + jsPDF high-res A4 single/batch export)
+    │   ├── csvExport.ts                 (CSV backup generator for marks and attendance)
+    │   ├── resultStorage.ts             (LocalStorage wrapper for results and mock generators)
+    │   └── sampleDataGenerator.ts       (Synthetic data generator for offline/demo simulations)
+    │
+    └── components/
+        ├── Header.tsx                   (Portal navigation, network indicator, quick action triggers)
+        ├── ControlPanel.tsx             (Class, subject, exam term, segment selector, task switcher)
+        ├── MarksTable.tsx               (Tabular marks/attendance entry, bounds check, absentee toggle)
+        ├── AdminLoginModal.tsx          (4-digit PIN authentication modal for Admin/Result Generator)
+        ├── PasswordModal.tsx            (Submission security modal triggered on batch final candidate)
+        ├── SettingsModal.tsx            (Admin panel: GAS URL, PIN, segment locks, allotments)
+        ├── GuideModal.tsx               (Teacher instructions, evaluation limits, keyboard shortcuts)
+        │
+        ├── common/
+        │   └── SyncStatusBar.tsx        (Real-time network, cache dirty state, sync queue indicator)
+        │
+        └── result/
+            ├── ResultGeneratorApp.tsx   (Admin examination hub: marks, tabulation, cards, controls)
+            ├── SingleStudentReportCard.tsx (High-fidelity A4 bilingual marksheet preview & export)
+            ├── BulkReportCards.tsx      (Batch report card generator with progress bar and print view)
+            ├── TabulationSheet.tsx      (Comprehensive class broadsheet register with rank order)
+            ├── AdmitCards.tsx           (Pre-exam Hall Ticket / Roll Slip generator with routine schedule)
+            ├── ClassSubjectAllotmentModal.tsx (Custom subject configuration per class)
+            ├── TeacherSubjectAllotmentModal.tsx (Teacher-to-class/subject assignment management)
+            ├── AdmitCardSubjectModal.tsx (Admit card specific subject roster selector)
+            ├── GoogleSheetStructureModal.tsx (GAS Apps Script source code generator & deployment guide)
+            └── ChangePinModal.tsx       (Admin master PIN update dialog)
+
+
+--------------------------------------------------------------------------------
+2. EVERY MAJOR REACT PAGE / COMPONENT
+--------------------------------------------------------------------------------
+1. App.tsx (Root Component):
+   - Location: /src/App.tsx (957 lines)
+   - Function: Acts as the primary state orchestrator and top-level router. Switches between 'mark_updation' (Teacher Data Entry Portal) and 'result_generator' (Admin Examination Authority).
+   - Manages: Global settings, system config locks, class-subject allotments, teacher allotments, segment security locks, active students, draft persistence, and optimistic zero-delay GAS submissions.
+
+2. Header.tsx:
+   - Location: /src/components/Header.tsx (147 lines)
+   - Function: Top branding bar displaying school name, portal badge, live online/offline network pill, Google Sheets connection status, and buttons to trigger Admin Login, Settings, or Help Guide.
+
+3. ControlPanel.tsx:
+   - Location: /src/components/ControlPanel.tsx (343 lines)
+   - Function: Task mode switcher (Enter Marks vs Fill Attendance), class selector dropdown, dynamic allotted subject selector, exam term dropdown (HY/AN), exam segment dropdown (PT-1, PT-2, HY, PT-3, PT-4, AE), and "Load Students" action trigger. Enforces Admin segment locks.
+
+4. MarksTable.tsx:
+   - Location: /src/components/MarksTable.tsx (481 lines)
+   - Function: High-performance tabular data entry grid. Features keyboard navigation (Enter/ArrowDown/ArrowUp), max marks validation (20 for PT, 80 for Written, custom for Attendance), quick Absent ('AB') toggle, completion progress bar, active optional subject filter banner, pagination controls, CSV backup export, and "Submit to PIS Data Base" trigger.
+
+5. ResultGeneratorApp.tsx:
+   - Location: /src/components/result/ResultGeneratorApp.tsx (1190 lines)
+   - Function: Complete administrative suite with 5 functional tabs:
+     * Tab 1: Marks Updation & Analysis (Class summary, average, pass rate, student drilldown)
+     * Tab 2: Tabulation Register (Broadsheet matrix with ranking and PDF/Excel export)
+     * Tab 3: Student Report Cards (Single and batch A4 marksheet generation)
+     * Tab 4: Admit Cards (Examination hall tickets with datesheet)
+     * Tab 5: System Control Panel (Portal ON/OFF lock, deadline picker, working days settings, modal launchers)
+
+6. SingleStudentReportCard.tsx:
+   - Location: /src/components/result/SingleStudentReportCard.tsx (465 lines)
+   - Function: Pixel-perfect, CBSE/State Board bilingual (English/Hindi) terminal marksheet. Renders scholastic assessment table, co-scholastic grades, attendance summary, result status (PASS/COMPARTMENT), remarks, and digital signature lines.
+
+7. BulkReportCards.tsx:
+   - Location: /src/components/result/BulkReportCards.tsx (238 lines)
+   - Function: Mass generator for an entire class roster. Provides batch preview, individual student jump, progress tracker, batch PDF export, and multi-card print layout.
+
+8. TabulationSheet.tsx:
+   - Location: /src/components/result/TabulationSheet.tsx (394 lines)
+   - Function: Comprehensive class ledger displaying Roll, Admission No, Name, Father's Name, subject marks/grades, Total Obtained, Max Marks, Percentage, Grade, Rank, and Attendance. Provides triggers for A4 Landscape PDF and Excel exports.
+
+9. AdmitCards.tsx:
+   - Location: /src/components/result/AdmitCards.tsx (365 lines)
+   - Function: Examination Admit Card generator. Generates A4 printable slips with School Header, Student Photo box, Roll No, Adm No, Class, Shift, datesheet timetable, student instructions, and Principal signature.
+
+10. ClassSubjectAllotmentModal.tsx:
+    - Location: /src/components/result/ClassSubjectAllotmentModal.tsx (234 lines)
+    - Function: Admin tool to add, delete, or reorder curriculum subjects for each individual class level.
+
+11. TeacherSubjectAllotmentModal.tsx:
+    - Location: /src/components/result/TeacherSubjectAllotmentModal.tsx (298 lines)
+    - Function: Admin tool to assign teachers to specific classes and subjects with teacher codes and names.
+
+12. AdmitCardSubjectModal.tsx:
+    - Location: /src/components/result/AdmitCardSubjectModal.tsx (168 lines)
+    - Function: Admin tool to configure which subjects appear on admit card exam timetables.
+
+13. GoogleSheetStructureModal.tsx:
+    - Location: /src/components/result/GoogleSheetStructureModal.tsx (311 lines)
+    - Function: In-app developer console containing complete, copy-pasteable Google Apps Script (Code.gs) source code, deployment instructions, and test ping diagnostics.
+
+14. AdminLoginModal.tsx:
+    - Location: /src/components/AdminLoginModal.tsx (112 lines)
+    - Function: PIN entry dialog (default '1234') guarding access to the Result Generator and administrative settings.
+
+15. PasswordModal.tsx:
+    - Location: /src/components/PasswordModal.tsx (117 lines)
+    - Function: Confirmation modal requiring the 4-digit PIN when a teacher submits a batch containing the final candidate of the class roster.
+
+16. SettingsModal.tsx:
+    - Location: /src/components/SettingsModal.tsx (264 lines)
+    - Function: Centralized modal for configuring Google Apps Script Web App URL, students-per-page pagination, segment security locks, master PIN modification, and navigation to allotments.
+
+17. GuideModal.tsx:
+    - Location: /src/components/GuideModal.tsx (184 lines)
+    - Function: Operational documentation detailing marking rubrics (PT 20, Written 80), absent coding ('AB'), keyboard shortcuts, and sync guidelines.
+
+18. SyncStatusBar.tsx:
+    - Location: /src/components/common/SyncStatusBar.tsx (96 lines)
+    - Function: Floating status bar indicating local cache integrity, pending queue count, and background Google Sheet sync status.
+
+19. ChangePinModal.tsx:
+    - Location: /src/components/result/ChangePinModal.tsx (118 lines)
+    - Function: Dialog for updating the administrative 4-digit master PIN.
+
+
+--------------------------------------------------------------------------------
+3. EVERY UTILITY / SERVICE / HELPER
+--------------------------------------------------------------------------------
+1. instantSyncBridge.ts:
+   - Exported Functions / Objects:
+     * instantSyncBridge (Singleton instance of class InstantSyncBridge)
+     * saveSingleMarkInstant(classLevel, roll, subject, segment, value, entryType)
+     * saveBatchMarksInstant(classLevel, records)
+     * extractExistingMarks(classLevel, subject, segment, entryType, examType)
+     * queueSheetSync(scriptUrl, payload, classLevel, onSuccess, onError)
+     * getMasterRecords(classLevel)
+     * setMasterRecords(classLevel, records)
+     * clearClassMaster(classLevel)
+     * subscribe(listener) / notify()
+   - Role: Core event bus ensuring 0ms zero-latency local state persistence in localStorage while queuing non-blocking background HTTP calls to Google Apps Script.
+
+2. googleSheetFetcher.ts:
+   - Exported Functions:
+     * fetchClassExamRecordsFromSheet(scriptUrl, classLevel)
+     * fetchStudentsFromSheet(scriptUrl, classLevel)
+     * testGasConnection(scriptUrl)
+     * cleanGasUrl(url)
+   - Role: Communicates with the remote Google Apps Script Web App. Handles CORS redirects, cleans trailing parameters, and provides detailed error diagnostics (e.g. detecting Google Sign-in HTML redirects).
+
+3. resultCalculator.ts:
+   - Exported Functions:
+     * calculatePercentage(obtained, max)
+     * getGrade(percentage)
+     * getGradePoint(percentage)
+     * computeSubjectResult(student, subject, examType)
+     * computeDualExamSubjectResult(student, subject)
+     * computeStudentSummary(student, subjects, examType, workingDaysHY, workingDaysAE)
+     * rankClassStudents(students, subjects, examType, workingDaysHY, workingDaysAE)
+     * getStudentSubjects(student, defaultSubjects)
+     * buildInitialStudentRecords(classLevel, subjects)
+   - Role: Implements institutional grading rubric. Scaled calculation: Best of PT-1 & PT-2 (converted to 10) + Portfolio (5) + Subject Enrichment (5) + Written Exam (80) = 100 Marks. Term-1 & Term-2 50-50 aggregation for Grand Total.
+
+4. studentSubjectDetector.ts:
+   - Exported Functions:
+     * detectStudentOptionalSubject(student)
+     * isStudentOptedForSubject(student, subject)
+     * getStudentLanguageSubject(student)
+     * EXPLICIT_OPTIONAL_SUBJECT_KEYS (constant array)
+   - Role: Strict, unbiased detector for optional subjects (Urdu vs Sanskrit). Reads exclusively from explicit Sheet columns/attributes (e.g. 'optedSubject', 'secondLanguage', 'optionalSubject'). Strictly forbids name-based or demographic-based guessing.
+
+5. tabulationExport.ts:
+   - Exported Functions:
+     * exportTabulationToPdf({ classLevel, students, subjects, examMode, workingDaysHY, workingDaysAE })
+     * exportTabulationToExcel({ classLevel, students, subjects, examMode, workingDaysHY, workingDaysAE })
+     * exportBlankTabulationToPdf({ classLevel, students, subjects, examSegment, session })
+   - Role: Produces professional A4 Landscape broadsheet PDFs with repeated headers via jspdf-autotable, formatted multi-column Excel workbooks via xlsx, and blank pen-and-paper registers for offline entry.
+
+6. pdfExport.ts:
+   - Exported Functions:
+     * exportReportCardToPdf({ element, filename })
+     * exportBatchReportCardsToPdf({ elements, filename, onProgress })
+     * exportAdmitCardToPdf({ element, filename })
+     * exportBatchAdmitCardsToPdf({ elements, filename, onProgress })
+   - Role: Uses html2canvas-pro at scale 2 to rasterize DOM cards, then embeds them into standard A4 portrait PDFs via jsPDF with 4-6mm minimal margins.
+
+7. csvExport.ts:
+   - Exported Functions:
+     * exportMarksToCsv({ students, values, className, entryType, subject, segment, workingDays })
+   - Role: Generates instant client-side CSV downloads for marks and attendance backup.
+
+8. resultStorage.ts:
+   - Exported Functions:
+     * loadStoredRecords(classLevel, subjects)
+     * saveStoredRecords(classLevel, records)
+     * clearStoredRecords(classLevel)
+     * generateMockRecords(classLevel, subjects)
+   - Role: LocalStorage helper managing class exam data fallback when offline.
+
+9. sampleDataGenerator.ts:
+   - Exported Functions:
+     * generateSampleClassData(classLevel, subjects)
+     * generateSampleAllClasses()
+   - Role: Produces realistic mock student exam records across all classes for instant preview and demonstration without internet connection.
+
+
+--------------------------------------------------------------------------------
+4. EVERY TYPESCRIPT TYPE / INTERFACE / MODEL
+--------------------------------------------------------------------------------
+From /src/types.ts:
+- EntryType: 'marks' | 'attendance'
+- ExamType: 'HY' | 'AN' (Half Yearly / Annual)
+- SegmentType: 'PT-1' | 'PT-2' | 'HY' | 'PT-3' | 'PT-4' | 'AE'
+- ClassLevel: 'Nursery' | 'LKG' | 'UKG' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+- Student:
+  {
+    roll: number;
+    name: string;
+    fatherName?: string;
+    motherName?: string;
+    admNo: string;
+    dob?: string;
+    optionalSubject?: string;
+    secondLanguage?: string;
+    photoUrl?: string;
+    [key: string]: any;
+  }
+- TeacherAllotment:
+  {
+    id: string;
+    teacherName: string;
+    teacherCode: string;
+    assignedClasses: ClassLevel[];
+    assignedSubjects: string[];
+    createdAt?: string;
+  }
+- ClassSubjectAllotmentMap: Record<ClassLevel, string[]>
+- AppSettings:
+  {
+    googleSheetApiUrl: string;
+    lockPassword: string;
+    studentsPerPage: number;
+    isOfflineDemo: boolean;
+  }
+- SheetSubmissionRecord:
+  {
+    roll: number;
+    name: string;
+    class: string;
+    subject: string;
+    examType: string;
+    segment: string;
+    type: string;
+    value: number | string;
+  }
+- NotificationState:
+  {
+    type: 'success' | 'error' | 'warning';
+    message: string;
+  }
+- SheetConfig:
+  {
+    sheetUrl: string;
+    lastSynced?: string;
+    isConnected: boolean;
+  }
+
+From /src/types/resultTypes.ts:
+- RawMarksMap: Record<string, number | 'AB'>
+- SubjectExamMarks:
+  {
+    pt1: number | 'AB';
+    pt2: number | 'AB';
+    bestPt: number;
+    portfolio: number;
+    subEnrichment: number;
+    written: number | 'AB';
+    total: number;
+    grade: string;
+    gradePoint: number;
+  }
+- DualExamSubjectResult:
+  {
+    hy: SubjectExamMarks;
+    ae: SubjectExamMarks;
+    grandTotal: number;
+    grandPercentage: number;
+    grandGrade: string;
+    grandGradePoint: number;
+  }
+- ExamType: 'HY' | 'AE' | 'BOTH'
+- StudentAttendanceRecord:
+  {
+    workingDays: number;
+    presentDays: number;
+    percentage: number;
+  }
+- StudentSummary:
+  {
+    totalObtained: number;
+    maxMarks: number;
+    percentage: number;
+    grade: string;
+    gradePoint: number;
+    resultStatus: 'PASS' | 'COMPARTMENT' | 'ESSENTIAL REPEAT';
+    failedSubjects: string[];
+    attendancePercentage: number;
+    workingDays: number;
+    presentDays: number;
+  }
+- StudentResultRecord:
+  {
+    roll: number;
+    name: string;
+    fatherName: string;
+    motherName?: string;
+    admNo: string;
+    dob?: string;
+    optionalSubject?: string;
+    classLevel: string;
+    section?: string;
+    photoUrl?: string;
+    subjectMarks: Record<string, SubjectExamMarks>;
+    dualMarks?: Record<string, DualExamSubjectResult>;
+    attendance: Record<'HY' | 'AE', StudentAttendanceRecord>;
+    summary: StudentSummary;
+    rank?: number;
+  }
+- FullStudentExamRecord:
+  {
+    roll: number;
+    name: string;
+    fatherName: string;
+    motherName?: string;
+    admNo: string;
+    dob?: string;
+    optionalSubject?: string;
+    classLevel: string;
+    section?: string;
+    photoUrl?: string;
+    rawMarks: RawMarksMap;
+    attendanceHY?: { workingDays: number; presentDays: number };
+    attendanceAE?: { workingDays: number; presentDays: number };
+  }
+- ClassTabulationData:
+  {
+    classLevel: string;
+    academicYear: string;
+    examType: ExamType;
+    subjects: string[];
+    students: StudentResultRecord[];
+    generatedAt: string;
+    classTeacherName?: string;
+    totalStudents: number;
+    passedStudents: number;
+    failedStudents: number;
+    classAverage: number;
+  }
+- SystemControlConfig:
+  {
+    marksEntryStatus: 'ON' | 'OFF';
+    marksEntryDeadline: string;
+    workingDaysHY: number;
+    workingDaysAE: number;
+  }
+- ReportCardPrintSettings:
+  {
+    showSchoolLogo: boolean;
+    showWatermark: boolean;
+    showRank: boolean;
+    showAttendance: boolean;
+    showSignatures: boolean;
+    themeColor: string;
+  }
+- AdmitCardPrintSettings:
+  {
+    showPhotoBox: boolean;
+    showExamRules: boolean;
+    showShiftTimings: boolean;
+    showPrincipalSignature: boolean;
+    reportingTime: string;
+    gateClosingTime: string;
+  }
+- AdmitCardScheduleItem:
+  {
+    date: string;
+    day: string;
+    time: string;
+    subject: string;
+    paperCode?: string;
+  }
+- AdmitCardRecord:
+  {
+    student: FullStudentExamRecord;
+    rollNo: string;
+    admitCardNo: string;
+    centerName: string;
+    centerCode: string;
+    schedule: AdmitCardScheduleItem[];
+  }
+- GradeScaleItem:
+  {
+    minScore: number;
+    maxScore: number;
+    grade: string;
+    gradePoint: number;
+    description: string;
+  }
+
+
+--------------------------------------------------------------------------------
+5. EVERY GOOGLE APPS SCRIPT FUNCTION / API ENDPOINT
+--------------------------------------------------------------------------------
+The Google Apps Script backend template resides in:
+/src/components/result/GoogleSheetStructureModal.tsx (Lines 26 to 234).
+
+Endpoints and Request Handlers:
+1. doGet(e):
+   - Handles incoming HTTP GET requests.
+   - Action Dispatcher:
+     * ?action=getStudents&class=Class_5: Calls handleGetStudents(e, ss). Fetches student roster (Roll, Adm No, Name, Father Name, Mother Name, DOB, Opted Subject).
+     * ?action=fetchClassExamData&class=Class_5: Calls handleFetchClassExamData(e, ss). Reads all student rows along with all test marks columns (PT-1, PT-2, HY, PT-3, PT-4, AE, Attendance).
+     * ?action=ping: Returns JSON { status: "success", message: "Google Apps Script backend connected!", timestamp: ... }.
+     * Default / Fallback: Returns student roster if 'class' parameter is provided.
+   - Response Format: ContentService.MimeType.JSON with headers for CORS.
+
+2. doPost(e):
+   - Handles incoming HTTP POST requests.
+   - Action Dispatcher: Calls handlePostData(e, ss).
+   - Expected Payload: JSON.stringify({ records: [ SheetSubmissionRecord, ... ] }) or individual payload.
+   - Logic:
+     * Iterates over each submission record.
+     * Identifies sheet named "Class_" + normalizeClassName(record.class).
+     * Locates the student row by Roll number or Admission Number.
+     * Maps subject + segment/type to the exact column header (e.g. "English PT-1", "Mathematics HY-WRT", "Attendance HY").
+     * Writes cell value into the Google Sheet.
+     * Appends an audit log row into the "Sync_Logs" sheet with timestamp, teacher/client IP, and record details.
+   - Response: JSON { status: "success", updatedCount: N, message: "Records successfully updated in Sheet" }.
+
+3. Internal Helper Functions inside Code.gs:
+   - handleGetStudents(e, ss): Scans demographic columns and returns JSON array of students.
+   - handleFetchClassExamData(e, ss): Reads demographic + dynamic test columns into rawMarks dictionary.
+   - handlePostData(e, ss): Batch updates cell values and writes to Sync_Logs.
+   - getOrCreateSheet(ss, sheetName): Returns existing sheet or initializes sheet with headers.
+   - normalizeClassName(c): Strips prefixes and standardizes class sheet tab names (e.g. "Class 5" -> "Class_5").
+
+
+--------------------------------------------------------------------------------
+6. EVERY GOOGLE SHEET-RELATED FUNCTION & SCHEMA
+--------------------------------------------------------------------------------
+Schema Architecture:
+Each class has a dedicated sheet tab in the Google Spreadsheet (e.g. "Class_1", "Class_2", ... "Class_10", "Class_Nursery", "Class_LKG", "Class_UKG").
+
+Standard Column Schema:
+- Col 1 (A): Roll No (Numeric index, e.g. 1, 2, 3...)
+- Col 2 (B): Admission No (e.g. "PIS-2025-0101")
+- Col 3 (C): Student Name (Full Name string)
+- Col 4 (D): Father's Name
+- Col 5 (E): Mother's Name
+- Col 6 (F): Date of Birth (YYYY-MM-DD or DD/MM/YYYY)
+- Col 7 (G): Gender (M / F)
+- Col 8 (H): Opted Subject / 2nd Language ("Urdu" | "Sanskrit" | "None")
+- Col 9 (I): Phone / Contact Number
+- Col 10+ (J..): Subject Marks Columns following naming pattern:
+  * "{Subject} PT-1" (Max 20)
+  * "{Subject} PT-2" (Max 20)
+  * "{Subject} HY" or "{Subject} HY-WRT" (Max 80)
+  * "{Subject} PT-3" (Max 20)
+  * "{Subject} PT-4" (Max 20)
+  * "{Subject} AE" or "{Subject} AE-WRT" (Max 80)
+  * "Attendance HY" (Term-1 Present Days)
+  * "Attendance AN" or "Attendance AE" (Term-2 Present Days)
+
+Supporting Sheets:
+- "Sync_Logs": Timestamp, User/Action, Class, Subject, Records Count, Status.
+- "Config": Portal settings, session year ("2025-2026"), working days parameters.
+
+
+--------------------------------------------------------------------------------
+7. EVERY LOCALSTORAGE & SESSIONSTORAGE KEY USED
+--------------------------------------------------------------------------------
+1. 'pis_master_exam_store_v2':
+   - Storage: localStorage
+   - Type: Record<string, FullStudentExamRecord[]>
+   - Description: Master local database holding all loaded and entered student exam records across all classes. Source of truth for 0ms instant sync.
+
+2. 'pis_system_control_config_v2':
+   - Storage: localStorage
+   - Type: SystemControlConfig ({ marksEntryStatus, marksEntryDeadline, workingDaysHY, workingDaysAE })
+   - Description: Governs portal lock status, deadline countdown, and class attendance denominators.
+
+3. 'pis_admin_pin_v2':
+   - Storage: localStorage
+   - Type: string (Default: "1234")
+   - Description: Master 4-digit security PIN for Admin Login and setting adjustments.
+
+4. 'pis_session_admin_authenticated':
+   - Storage: sessionStorage
+   - Type: "true" | "false"
+   - Description: Tracks active Admin session. Cleared on tab close or Admin Sign Out.
+
+5. 'pis_app_settings_v2':
+   - Storage: localStorage
+   - Type: AppSettings ({ googleSheetApiUrl, lockPassword, studentsPerPage, isOfflineDemo })
+   - Description: General user/app preferences and Google Apps Script Web App URL.
+
+6. 'pis_segment_locks_v2':
+   - Storage: localStorage
+   - Type: Record<string, boolean> (e.g. { 'PT-1': false, 'HY': true, 'attendance': false })
+   - Description: Admin security locks hiding specific exam segments or attendance from Teachers.
+
+7. 'pis_teacher_allotments_v2':
+   - Storage: localStorage
+   - Type: TeacherAllotment[]
+   - Description: Master registry of teacher-to-class and teacher-to-subject assignments.
+
+8. 'pis_class_subject_allotments_v2':
+   - Storage: localStorage
+   - Type: ClassSubjectAllotmentMap (Record<ClassLevel, string[]>)
+   - Description: Custom subject curriculum mappings per class configured by Examination Authority.
+
+9. 'pis_admit_card_allotments_v2':
+   - Storage: localStorage
+   - Type: ClassSubjectAllotmentMap
+   - Description: Subject schedule mappings for Admit Cards.
+
+10. 'pis_sheet_cache_{classLevel}':
+    - Storage: localStorage
+    - Type: { timestamp: number, records: FullStudentExamRecord[] }
+    - Description: Class-level cache storing data fetched from Google Sheets.
+
+11. 'pis_sync_queue':
+    - Storage: localStorage
+    - Type: Array of pending submission tasks
+    - Description: Offline queue for submissions pending transmission to Google Apps Script.
+
+12. 'pis_last_sync_timestamp':
+    - Storage: localStorage
+    - Type: string (ISO timestamp)
+    - Description: Timestamp of last successful two-way sync with Google Sheets.
+
+13. 'pis_draft_marks_{class}_{subject}_{segment}':
+    - Storage: localStorage
+    - Type: Record<string, string> (roll -> mark value)
+    - Description: Auto-saved unsubmitted mark drafts for individual class-subject-segment sessions.
+
+14. 'pis_draft_att_{class}_{term}':
+    - Storage: localStorage
+    - Type: Record<string, string> (roll -> present days)
+    - Description: Auto-saved unsubmitted attendance drafts for individual class-term sessions.
+
+15. 'pis_result_calc_cache_{class}_{term}':
+    - Storage: localStorage
+    - Type: Cached calculation summaries
+    - Description: Transient cache for computationally heavy ranking and tabulation results.
+
+
+--------------------------------------------------------------------------------
+8. EVERY AUTHENTICATION / LOGIN-RELATED FILE & FUNCTION
+--------------------------------------------------------------------------------
+Files:
+- /src/components/AdminLoginModal.tsx
+- /src/components/PasswordModal.tsx
+- /src/components/result/ChangePinModal.tsx
+- /src/App.tsx (Lines 87 to 112, 235 to 242, 574 to 588, 630 to 635)
+
+Mechanisms & Functions:
+1. handleAdminLoginSuccess(pin):
+   - Validates input against adminPin (Default '1234').
+   - Sets isAdminAuthenticated state to true.
+   - Persists session in sessionStorage.setItem('pis_session_admin_authenticated', 'true').
+   - Automatically switches active view to 'result_generator'.
+
+2. handleAdminSignOut():
+   - Clears isAdminAuthenticated state.
+   - Removes sessionStorage session.
+   - Redirects user back to 'mark_updation'.
+
+3. handleChangeAdminPin(newPin):
+   - Updates adminPin state.
+   - Saves to localStorage ('pis_admin_pin_v2' and 'lockPassword' in 'pis_app_settings_v2').
+
+4. Final Candidate Batch Security Verification:
+   - Located in App.tsx (handleInitiateSubmit).
+   - Checks if the submission contains the final student of the active class roster.
+   - If true, intercepts submission and opens PasswordModal.
+   - Requires entry of the 4-digit PIN before allowing final transmission to Google Sheets.
+
+
+--------------------------------------------------------------------------------
+9. EVERY ADMIN-RELATED MODULE & CAPABILITY
+--------------------------------------------------------------------------------
+Primary Controller: /src/components/result/ResultGeneratorApp.tsx
+Admin Capabilities:
+1. Result Generator & Examination Control:
+   - Compute Term-1 (HY), Term-2 (AE), or Dual (BOTH) class results.
+   - View class analytics: Total Candidates, Passed, Compartments, Average Score, Top Scorer, Lowest Scorer.
+2. Segment Security Locks:
+   - Admin can independently lock/unlock PT-1, PT-2, HY, PT-3, PT-4, AE, and Attendance.
+   - Locked segments are completely hidden from Teachers in the Mark Entry Portal.
+3. Portal Master Switch & Deadline:
+   - Toggle marks entry status: ON vs OFF.
+   - Set ISO deadline date/time. Submissions beyond deadline are automatically rejected.
+4. Total Working Days Configuration:
+   - Set official working days for Term-1 (HY) and Term-2 (AE). Automatically binds as the maximum attendance ceiling in teacher entry tables.
+5. Allotment Masters:
+   - Class-wise Subject Allotment Modal.
+   - Teacher-wise Subject Assignment Modal.
+   - Admit Card Timetable Subject Modal.
+6. System Credentials & GAS Architecture:
+   - Change 4-digit master PIN.
+   - View and copy production Google Apps Script (Code.gs) boilerplate.
+   - Test live connection ping to Google Apps Script Web App.
+
+
+--------------------------------------------------------------------------------
+10. EVERY TEACHER-RELATED MODULE & CAPABILITY
+--------------------------------------------------------------------------------
+Primary Controller: /src/components/ControlPanel.tsx & /src/components/MarksTable.tsx
+Teacher Capabilities:
+1. Dual Task Mode:
+   - Enter Marks: Subject and examination segment evaluations.
+   - Fill Attendance: Direct entry of present days against Admin-prescribed working days.
+2. Filtered Class & Subject Selection:
+   - Teachers only select from classes and subjects allotted by the Exam Authority.
+3. Rapid Tabular Entry:
+   - Keyboard navigation using Arrow keys and Enter to advance through rows.
+   - Automatic numeric bounds enforcement (rejects numbers > 20 for PT or > 80 for Term).
+   - Single-click quick Absent ('AB') button.
+4. Isolated Optional Subject Entry:
+   - When entering marks for an optional subject (e.g. Urdu or Sanskrit), the table automatically filters to display ONLY opted students, eliminating clutter and misentry.
+5. Auto-Draft Recovery:
+   - Every keystroke is saved to a localStorage draft key, preventing data loss on browser refresh or accidental tab closure.
+6. Offline CSV Backup:
+   - Export local CSV backup before submission.
+
+
+--------------------------------------------------------------------------------
+11. EVERY STUDENT-RELATED MODULE & DATA STRUCTURE
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/types.ts (Student interface)
+- /src/types/resultTypes.ts (FullStudentExamRecord, StudentResultRecord)
+- /src/utils/studentSubjectDetector.ts
+
+Data Fields:
+- Identity & Demographics:
+  * Roll Number (Unique integer within class)
+  * Admission Number (Institutional ID e.g. "PIS-2025-0101")
+  * Student Name (Full legal name)
+  * Father's Name & Mother's Name
+  * Date of Birth (DOB)
+  * Gender
+  * Optional Subject / 2nd Language (Urdu, Sanskrit, or None)
+  * Photo URL (or default avatar placeholder)
+- Evaluation Metrics:
+  * rawMarks map keyed by "{Subject} {Segment}"
+  * attendanceHY and attendanceAE present/working records
+  * Computed summary: totalObtained, maxMarks, percentage, grade, rank, resultStatus
+
+
+--------------------------------------------------------------------------------
+12. EVERY MARK ENTRY MODULE & VALIDATION ENGINE
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/MarksTable.tsx
+- /src/App.tsx (handleValueChange, handleInitiateSubmit, executeSubmission)
+
+Validation Rules:
+- Periodic Tests (PT-1, PT-2, PT-3, PT-4):
+  * Maximum Allowed: 20 marks.
+  * Inputs > 20 trigger an alert and are blocked.
+- Written Term Examinations (HY, AE):
+  * Maximum Allowed: 80 marks.
+  * Inputs > 80 trigger an alert and are blocked.
+- Attendance:
+  * Maximum Allowed: Governed by totalWorkingDays configured by Admin (default 110 or 115).
+- Absent Marking:
+  * Inputs 'A', 'AB', 'ABS' (case-insensitive) normalize to 'AB'.
+  * Numeric sanitization: Rejects all non-digit characters except absentee tokens.
+- Optimistic Submission:
+  * Data commits in 0ms to instantSyncBridge master store.
+  * Background queue attempts transmission to Google Sheets without freezing the browser UI.
+
+
+--------------------------------------------------------------------------------
+13. EVERY ATTENDANCE-RELATED MODULE & POLICY
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/ControlPanel.tsx (attendanceType, totalWorkingDays)
+- /src/components/MarksTable.tsx (Attendance % column and bounds)
+- /src/utils/resultCalculator.ts (computeStudentSummary attendance metrics)
+
+Policy & Implementation:
+- Governed strictly by Admin-configured working days:
+  * Term-1 (HY): systemConfig.workingDaysHY (Default: 110)
+  * Term-2 (AE): systemConfig.workingDaysAE (Default: 115)
+- Attendance Percentage Calculation:
+  * Formula: Math.round((presentDays / workingDays) * 100)
+  * Visual Badges:
+    - >= 75%: Emerald badge (Eligible)
+    - 50% - 74%: Amber badge (Warning / Condonation required)
+    - < 50%: Rose badge (Critical shortage)
+- Integrated into Broadsheets, Report Cards, and CSV exports.
+
+
+--------------------------------------------------------------------------------
+14. EVERY SUBJECT ALLOCATION MODULE & INHERITANCE FLOW
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/result/ClassSubjectAllotmentModal.tsx
+- /src/components/result/TeacherSubjectAllotmentModal.tsx
+- /src/components/result/AdmitCardSubjectModal.tsx
+- /src/data/schoolConfig.ts (SUBJECTS_BY_CLASS baseline)
+
+Inheritance Pipeline:
+1. Baseline Configuration:
+   - SUBJECTS_BY_CLASS in schoolConfig.ts provides hardcoded defaults for Nursery through Class 10.
+2. Admin Override:
+   - Admin customizes subjects per class in ClassSubjectAllotmentModal.
+   - Saved to localStorage under 'pis_class_subject_allotments_v2'.
+3. Downstream Propagation:
+   - ControlPanel.tsx reads from subjectAllotments. Teachers only see subjects enabled for the selected class.
+   - ResultGeneratorApp.tsx uses subjectAllotments to generate broadsheets and report cards.
+   - AdmitCardSubjectModal allows selecting a distinct subject timetable for hall tickets.
+
+
+--------------------------------------------------------------------------------
+15. EVERY RESULT GENERATION MODULE & CALCULATION ENGINE
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/result/ResultGeneratorApp.tsx
+- /src/utils/resultCalculator.ts
+
+Calculation Formulas:
+1. Single Term Subject Evaluation (HY or AE):
+   - Periodic Component (10 Marks): Best score between (PT-1, PT-2) for Term-1 or (PT-3, PT-4) for Term-2, scaled to 10 marks (BestPT / 2).
+   - Portfolio (PF): 5 Marks (Derived/Awarded).
+   - Subject Enrichment (SE): 5 Marks (Derived/Awarded).
+   - Written Examination (WRT): 80 Marks.
+   - Total Subject Score = (BestPT / 2) + PF (5) + SE (5) + Written (80) = 100 Marks Max.
+
+2. Dual Term Aggregation (BOTH):
+   - Grand Total = (Term-1 Subject Total + Term-2 Subject Total) / 2.
+   - Grand Percentage = (Total Obtained across all subjects / Total Max Marks) * 100.
+
+3. Grading Scale:
+   - 91% - 100%: Grade A1 (Grade Point 10.0)
+   - 81% - 90%: Grade A2 (Grade Point 9.0)
+   - 71% - 80%: Grade B1 (Grade Point 8.0)
+   - 61% - 70%: Grade B2 (Grade Point 7.0)
+   - 51% - 60%: Grade C1 (Grade Point 6.0)
+   - 41% - 50%: Grade C2 (Grade Point 5.0)
+   - 33% - 40%: Grade D  (Grade Point 4.0)
+   - 0%  - 32%: Grade E  (Essential Repeat / Fail, Grade Point 0.0)
+
+4. Ranking Algorithm (rankClassStudents):
+   - Sorts students strictly by Total Marks Obtained descending.
+   - Resolves ties using Percentage descending, then Roll number ascending.
+   - Assigns 1-based ranks (#1, #2, #3...).
+
+
+--------------------------------------------------------------------------------
+16. EVERY BROADSHEET / TABULATION MODULE & EXPORT MECHANISM
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/result/TabulationSheet.tsx
+- /src/utils/tabulationExport.ts
+
+Capabilities:
+1. Interactive Tabulation Ledger:
+   - Displays Roll, Adm No, Student Name, Father's Name, subject marks + grade pills, Total, Max, %, Grade, Rank, Attendance, and Result Status.
+   - Supports search filtering by name/roll and sorting by Rank or Roll number.
+2. A4 Landscape PDF Export (exportTabulationToPdf):
+   - Uses jsPDF and jspdf-autotable.
+   - Generates 297mm x 210mm landscape pages.
+   - Table headers automatically repeat on every page.
+   - Dynamic column widths: Compact numeric columns (10-14mm) and legible name columns (30-32mm).
+   - Footer contains institutional summary: Total Students, Passed, Failed, and Class Average.
+3. Excel Export (exportTabulationToExcel):
+   - Uses xlsx library to build a native spreadsheet.
+   - Includes header metadata block, student mark grid, and summary statistics row.
+4. Blank Pen/Paper Register (exportBlankTabulationToPdf):
+   - Generates printable blank grid with pre-filled student demographics and empty mark cells for offline manual marking.
+
+
+--------------------------------------------------------------------------------
+17. EVERY ADMIT CARD MODULE & GENERATION PIPELINE
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/result/AdmitCards.tsx
+- /src/components/result/AdmitCardSubjectModal.tsx
+- /src/utils/pdfExport.ts (exportAdmitCardToPdf, exportBatchAdmitCardsToPdf)
+
+Features:
+- Standardized institutional Hall Ticket layout:
+  * Header with School Name, Subtitle, and Session.
+  * Examination title (e.g. "ANNUAL EXAMINATION ADMIT CARD 2025-26").
+  * Student photo frame with "Paste Passport Photo" placeholder.
+  * Demographics: Candidate Name, Roll No, Adm No, Class, Father's Name, Center Name ("Self School Center").
+  * Timetable grid: Date, Day, Exam Timing, Subject, Paper Code.
+  * Candidate Examination Rules (Punctuality, Uniform, ID card, Electronic device ban).
+  * Signature blocks: Candidate Signature, Class Teacher Signature, Center Superintendent / Principal.
+- Batch export renders high-resolution multi-page A4 portrait PDFs via html2canvas-pro and jsPDF.
+
+
+--------------------------------------------------------------------------------
+18. EVERY REPORT CARD / MARKS CARD MODULE & BILINGUAL RENDERING
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/result/SingleStudentReportCard.tsx
+- /src/components/result/BulkReportCards.tsx
+- /src/utils/pdfExport.ts (exportReportCardToPdf, exportBatchReportCardsToPdf)
+
+Card Architecture:
+- Complete bilingual design (English and Hindi labels).
+- Institutional header with school branding and affiliated details.
+- Student profile table: Name, Roll No, Admission No, Class, Father's Name, Mother's Name, DOB, Attendance.
+- Scholastic Performance Table:
+  * For Single Term: PT (10), Portfolio (5), Subject Enrichment (5), Written Exam (80), Total (100), Grade.
+  * For Dual Term: Term-1 (100), Term-2 (100), Grand Total (100), Grand Grade.
+- Co-Scholastic Assessment: Work Education, Art Education, Health & Physical Education, Discipline.
+- Summary block: Overall Marks, Percentage, Final Grade, Rank in Class, Result Status (PROMOTED / PASS).
+- Official Signatures: Class Teacher, Exam Incharge, Principal.
+
+
+--------------------------------------------------------------------------------
+19. EVERY PRINT / DOWNLOAD / EXPORT MODULE
+--------------------------------------------------------------------------------
+1. PDF Rendering Pipeline:
+   - html2canvas-pro: Rasterizes target HTML elements at 2x device scale, honoring Tailwind CSS and oklch color spaces without viewport clipping.
+   - jsPDF: Compiles images into strict A4 dimensions (210 x 297mm portrait or 297 x 210mm landscape) with 4-6mm margins.
+   - jspdf-autotable: Generates vector-native PDF tables with auto page breaks and repeated headers.
+2. Excel Rendering Pipeline:
+   - xlsx (SheetJS): Builds native .xlsx workbooks with custom column widths (!cols) and summary formulas.
+3. CSV Export Pipeline:
+   - Native Blob creation with text/csv;charset=utf-8; MIME type and URL.createObjectURL for instant file download.
+
+
+--------------------------------------------------------------------------------
+20. EVERY SETTINGS & CONFIGURATION MODULE
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/components/SettingsModal.tsx
+- /src/data/schoolConfig.ts
+- /src/components/result/ChangePinModal.tsx
+
+Settings Managed:
+1. Google Apps Script Web App Deployment URL.
+2. Master Admin Security PIN (Default: '1234').
+3. Pagination threshold (Default: 20 students per page).
+4. Demo / Offline mode toggle.
+5. Segment security lock switches.
+6. Institutional metadata constants:
+   - SCHOOL_NAME: "PEACE INTERNATIONAL SCHOOL"
+   - SCHOOL_SUBTITLE: "Affiliated to CBSE, New Delhi • Senior Secondary"
+   - SCHOOL_ADDRESS: "Knowledge Park, Education City, Delhi NCR - 201310"
+   - ACADEMIC_SESSION: "2025-2026"
+   - SCHOOL_EMAIL, SCHOOL_PHONE, SCHOOL_CODE, AFFILIATION_NO
+
+
+--------------------------------------------------------------------------------
+21. EVERY DATA-SYNC / BRIDGE / CACHE MECHANISM
+--------------------------------------------------------------------------------
+Primary Files:
+- /src/utils/instantSyncBridge.ts
+- /src/utils/googleSheetFetcher.ts
+- /src/components/common/SyncStatusBar.tsx
+
+Sync Engine Mechanics:
+1. 0ms Optimistic Local Commit:
+   - When a teacher alters a mark or submits a batch, instantSyncBridge immediately updates the master in-memory cache and writes to localStorage ('pis_master_exam_store_v2').
+   - UI reflects changes instantly (0.00s latency) with zero spinner blocking.
+2. Event Bus & Subscriptions:
+   - InstantSyncBridge implements a pub/sub listener model. Any change in the Teacher Mark Entry portal triggers an instant notification event, automatically re-rendering open broadsheets or report cards in the Result Generator.
+3. Non-Blocking Asynchronous Background Queue:
+   - queueSheetSync packages submissions into a pending queue.
+   - Sends payload via HTTP POST to the configured Google Apps Script Web App.
+   - Handles network timeouts and offline scenarios gracefully; records remain safe in localStorage and can be retried.
+4. Sheet Structure Diagnostics:
+   - testGasConnection sends a ping request to the GAS URL.
+   - Analyzes response to confirm whether "Who has access" is properly set to "Anyone", detecting and alerting if Google returns an OAuth/Login redirect HTML page.
+
+
+--------------------------------------------------------------------------------
+22. HANDLING OF OPTIONAL SUBJECTS (URDU, SANSKRIT, ETC.)
+--------------------------------------------------------------------------------
+Implementation File: /src/utils/studentSubjectDetector.ts
+Rules & Verification:
+1. Explicit Key Inspection Only:
+   - Examines only explicit student properties: 'optedSubject', 'optionalSubject', 'secondLanguage', 'second_language', 'subject2', 'languageOption', 'urdu', 'sanskrit'.
+2. Strict Prohibition of Demographic Bias:
+   - Code explicitly comments and mandates: NEVER infer or guess optional subjects based on student name, father name, religion, caste, or demographic indicators.
+3. Isolated Portal Mark Entry View:
+   - In App.tsx (activeStudents useMemo), when a teacher selects an optional subject (e.g. "Urdu"), the student list is immediately filtered:
+     only students where isStudentOptedForSubject(student, "Urdu") === true are shown.
+   - Sanskrit students are completely hidden from the Urdu entry table, and vice-versa.
+4. Result Engine Treatment:
+   - In resultCalculator.ts (getStudentSubjects), non-opted subjects are excluded from the student's individual curriculum. Max marks and percentage are calculated only against the subjects the candidate actually opted for.
+
+
+--------------------------------------------------------------------------------
+23. HANDLING OF CLASS-SUBJECT MAPPING & OVERRIDES
+--------------------------------------------------------------------------------
+Implementation Files:
+- /src/data/schoolConfig.ts (SUBJECTS_BY_CLASS)
+- /src/components/result/ClassSubjectAllotmentModal.tsx
+- /src/App.tsx (subjectAllotments state)
+
+Mapping Flow:
+1. Baseline:
+   - SUBJECTS_BY_CLASS provides default subject lists:
+     * Classes 1-5: English, Hindi, Mathematics, EVS, General Science, Computer, Urdu, Sanskrit
+     * Classes 6-8: English, Hindi, Mathematics, Science, Social Science, Computer Science, Urdu, Sanskrit
+     * Classes 9-10: English Language & Lit, Hindi Course-A, Mathematics Standard, Science, Social Science, Information Technology, Urdu Course-A, Sanskrit
+2. Customization:
+   - The Examination Incharge can add custom subjects or remove existing ones per class.
+   - Stored in localStorage key 'pis_class_subject_allotments_v2'.
+3. Reactivity:
+   - Dynamic subject count badge appears in the Teacher Control Panel (e.g. "8 Allotted").
+   - Dropdown options update immediately without page refresh.
+
+
+--------------------------------------------------------------------------------
+24. HANDLING OF TEACHER-SUBJECT ALLOCATION & ACCESS CONTROL
+--------------------------------------------------------------------------------
+Implementation Files:
+- /src/components/result/TeacherSubjectAllotmentModal.tsx
+- /src/types.ts (TeacherAllotment)
+- /src/App.tsx (teacherAllotments state)
+
+Allocation Structure:
+- Each allotment record consists of:
+  * id: Unique UUID string
+  * teacherName: Legal name (e.g. "Dr. R. K. Sharma")
+  * teacherCode: Faculty ID (e.g. "T-104")
+  * assignedClasses: Array of ClassLevel strings (e.g. ['6', '7', '8'])
+  * assignedSubjects: Array of subject strings (e.g. ['Mathematics', 'Science'])
+  * createdAt: Timestamp
+- Persistence: Stored in localStorage under 'pis_teacher_allotments_v2'.
+- Current Enforcement Level:
+  * The data structure and management modal exist in the Admin panel.
+  * In the Teacher portal, class/subject selection is currently open to any teacher unless restricted by Admin segment locks. Full teacher login authentication against TeacherAllotment records is architected for Phase 2 ("Academic Hero" rebranding).
+
+
+--------------------------------------------------------------------------------
+25. HANDLING OF ROLES, PERMISSIONS, AND PASSWORDS
+--------------------------------------------------------------------------------
+Architecture:
+1. Two Defined Roles:
+   - Role 1: Teacher / Staff (Data Entry Operator)
+     * Access: Mark Updation Portal (Marks and Attendance entry).
+     * Restrictions: Cannot access Result Generator, cannot alter system locks, cannot see Admin-locked segments, cannot modify working days or subject allocations.
+   - Role 2: Examination Authority / Administrator
+     * Access: Full access to Result Generator, Tabulation Register, Report Cards, System Control Panel, and Settings.
+     * Security: Guarded by 4-digit Master PIN (Default: '1234').
+2. Session Management:
+   - Admin authentication is stored in sessionStorage ('pis_session_admin_authenticated').
+   - Automatically expires upon browser tab close.
+3. Segment Security Locks:
+   - Admin can lock individual evaluation segments (e.g. lock 'HY' written exam while keeping 'PT-1' open).
+   - Prevents teachers from viewing or submitting unauthorized exam marks.
+4. Final Candidate Submission Security Prompt:
+   - Submitting an entire class batch triggers PasswordModal on the final candidate, requiring the 4-digit PIN to prevent accidental batch submission.
+
+
+--------------------------------------------------------------------------------
+26. KNOWN ARCHITECTURAL BOTTLENECKS, COUPLING & RISKS
+--------------------------------------------------------------------------------
+1. State Monoliths:
+   - App.tsx (957 lines) and ResultGeneratorApp.tsx (1190 lines) hold excessive state variables (modals, allotments, configs, filter selections).
+   - Recommendation for Academic Hero: Decompose into modular React Contexts or Zustand stores (e.g. useAuthStore, useExamStore, useSystemConfigStore).
+
+2. Dual Data Source of Truth & Race Conditions:
+   - Master exam records exist concurrently in localStorage ('pis_master_exam_store_v2') and in remote Google Sheets.
+   - If multiple teachers edit the same sheet simultaneously, local storage may become out of sync with Google Sheets unless a fresh pull is forced.
+
+3. Google Apps Script Quotas & Latency:
+   - Google Apps Script has execution quotas (6 mins max execution time, concurrent request limits).
+   - Rapid sequential doPost requests can trigger 429 Too Many Requests or CORS redirect failures if not batched.
+
+4. Client-Side PDF Generation Memory Footprint:
+   - html2canvas-pro at scale 2 rasterizes full DOM trees to canvas in browser memory.
+   - Generating 100+ report cards simultaneously in BulkReportCards can cause high memory usage on low-spec client machines.
+
+5. Authentication Security Limitations:
+   - Master PIN ('1234') is stored in plain text in localStorage ('pis_admin_pin_v2').
+   - No cryptographic salt/hash or JWT token is utilized. Suitable for internal school local networks, but requires secure hashing for multi-tenant production.
+
+6. Absence of True Relational Integrity:
+   - Roster data relies on Google Sheet cell matching by Roll or Adm No string.
+   - Changing a student's Roll number midway through the session without updating existing records can lead to orphaned entries.
+
+================================================================================
+END OF TECHNICAL AUDIT REPORT - READY FOR REBRANDING TO "ACADEMIC HERO"
+================================================================================

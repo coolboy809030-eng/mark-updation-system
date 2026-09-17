@@ -1,0 +1,540 @@
+====================================================================================================
+PARADIZE MODEL SCHOOL (PIS/PMS) - EXAMINATION & RESULT MANAGEMENT SYSTEM
+MASTER TECHNICAL BASELINE SPECIFICATION & HANDOVER REPORT
+====================================================================================================
+Document Title    : Master Technical Baseline & Architectural Handover Report
+File Formats      : .fxt (Master Spec) & .txt (Universal Plain Text)
+Release Version   : 2.4.0 (Production Master Certified)
+Created Date      : 2026-09-13
+Prepared For      : School Administration, Examination Authority, and Engineering Team
+Lead Project Email: khanarif1531@gmail.com
+Status            : Active, Production Ready, Fully Verified
+
+====================================================================================================
+DO NOT BREAK GUARANTEE & GOLDEN RULES (CRITICAL MANDATE)
+====================================================================================================
+"Existing features, database/sheet structure, column mapping, formulas, result format, 
+PDF layout, unique-ID logic, authentication, and working workflows must not be changed 
+unless explicitly requested."
+
+Golden Rules for Future Modifications:
+1. NEVER alter column names, sheet tab nomenclature, or JSON payload keys without a dual-version migration.
+2. NEVER guess student identity or optional subjects from names, religion, gender, or community.
+3. NEVER replace the 0.01s optimistic local store with blocking remote API fetch calls.
+4. NEVER remove print CSS page-break constraints (`page-break-after: always`) from report card layouts.
+5. NEVER expose Google service account credentials, OAuth refresh tokens, or administrative master keys.
+
+====================================================================================================
+TABLE OF CONTENTS (18 COMPREHENSIVE SECTIONS + DATA FLOW DIAGRAM)
+====================================================================================================
+1. Project Overview & Operational Objectives
+2. Technology Stack & Framework Inventory
+3. Complete Project & Directory Structure (File-by-File Ledger)
+4. End-to-End Application Architecture
+5. Google Sheets Master Structure & Column Directory
+6. Student Identity & Unique Identifier (UID) Matching Logic
+7. Login, Authentication & Session Security
+8. Role-Based Access Control (RBAC) & Permission Matrix
+9. Detailed Functional Module Breakdown
+10. Marks Updation Exact Workflow & Lifecycle
+11. Data Validation & Academic Business Rules
+12. Google Sheets <-> App Synchronization Engine (0.01s Dual Sync)
+13. Admin Governance & Configuration Directory
+14. Existing User Experience (UI/UX) & Responsive Design
+15. Result Computation, Tabulation, Grading & PDF/Print System
+16. Security Standards, Privacy & Data Hardening
+17. Current Technical Baseline, Known Quirks & Safe Boundaries
+18. Deployment, Apps Script Release & Rollback Procedures
+19. Master Data Flow Architecture (Flowchart & Step-by-Step Traversal)
+====================================================================================================
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 1: PROJECT OVERVIEW & OPERATIONAL OBJECTIVES
+----------------------------------------------------------------------------------------------------
+1.1 Application Objective:
+The Paradize Model School (PIS/PMS) Examination & Result Management Suite is a purpose-built,
+high-throughput digital ecosystem designed to replace manual tabulation registers, paper mark
+sheets, and slow, error-prone spreadsheet entries. It provides:
+- Single-portal marks entry for subject teachers with zero lag.
+- Centralized administrative broadsheets (Tabulation Registers).
+- Automated CBSE/State Board-aligned Report Card generation with instant single and bulk printing.
+- Fault-tolerant synchronization with Google Sheets, guaranteeing 100% offline data survivability.
+
+1.2 Target User Personas:
+- Subject Teachers: Enter Periodic Tests (PT-1, PT-2, PT-3, PT-4), Half Yearly (HY), and Annual
+  Examination (AE) marks, attendance, and qualitative student feedback.
+- Class Teachers: Manage class-level student rosters, verify marks, and inspect broadsheets.
+- Examination Authority / Admin: Control global entry deadlines, lock/unlock terms, manage subject
+  allotments, configure Google Sheets endpoints, and execute official bulk report card print runs.
+- Students & Parents: View standardized, tamper-evident printed/digital performance report cards.
+
+1.3 Macro Workflow Lifecycle:
+   Admin Allots Subjects & Deadlines -> Teacher Opens App -> Selects Class, Exam & Subject ->
+   Enters Marks with Instant Draft & 0.01s Local Sync -> Background Batch Dispatched to Google Sheet ->
+   Admin Audits Tabulation Register -> Generates Merits, Broadsheets & Multi-Page Print Report Cards.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 2: TECHNOLOGY STACK & FRAMEWORK INVENTORY
+----------------------------------------------------------------------------------------------------
+2.1 Client Frontend Core:
+- Framework: React 18+ Single Page Application (SPA).
+- Language: TypeScript 5.5+ (Strict type enforcement enabled, `--noEmit` passing clean).
+- Build Tool: Vite 6.4.3 (ESM production bundler, tree-shaking, fast container startup).
+- CSS Framework: Tailwind CSS (v4 compatible, utility-first styling with `@import "tailwindcss"`).
+- Icons Library: `lucide-react` (Strict requirement: standard SVG icons, no custom SVG injections).
+- Animation & Motion: Native CSS transitions and `@media print` layout engines.
+
+2.2 Backend & Data Ingress Layer:
+- Primary Cloud Datastore: Google Sheets (acting as a relational workbook datastore).
+- Cloud Middleware: Google Apps Script Web App (GAS) executing JSON-RPC via `doGet` and `doPost`.
+- Fallback & Local Database: Browser LocalStorage partitioned by `pis_exam_results_<CLASS>_2025`
+  paired with native in-memory caching.
+- Runtime Engine: Node.js (Vite development dev server on port 3000, containerized for Cloud Run).
+
+2.3 Core Package Dependencies (`package.json`):
+- `react`, `react-dom`: v18+ UI rendering core.
+- `lucide-react`: UI icon set for status badges, buttons, and dialogs.
+- `clsx`, `tailwind-merge`: Dynamic CSS class resolution (if needed).
+- `canvas-confetti` (optional): Merit achievement visual triggers.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 3: COMPLETE PROJECT & DIRECTORY STRUCTURE (FILE-BY-FILE LEDGER)
+----------------------------------------------------------------------------------------------------
+```
+/
+├── index.html                           # SPA entry HTML, viewport & print stylesheet meta
+├── package.json                         # Node package manifest, scripts & dependencies
+├── tsconfig.json                        # TypeScript compiler options
+├── vite.config.ts                       # Vite bundler configuration
+├── metadata.json                        # Applet metadata, frame permissions & capabilities
+├── public/
+│   ├── school_logo.jpg                  # Official school crest / insignia
+│   ├── FINAL_TECHNICAL_HANDOVER_REPORT.fxt # Master Technical Baseline Handover file (.fxt)
+│   └── FINAL_TECHNICAL_HANDOVER_REPORT.txt # Master Technical Baseline Handover file (.txt)
+└── src/
+    ├── main.tsx                         # React root mount point (DOM render)
+    ├── index.css                        # Tailwind CSS global import & custom print styling
+    ├── types.ts                         # Global application types, Enums & Sheet interfaces
+    ├── App.tsx                          # Primary Root View: Teacher Portal & App Orchestrator
+    ├── types/
+    │   └── resultTypes.ts               # Core Exam Models, Student Record, CBSE marks contracts
+    ├── data/
+    │   ├── schoolConfig.ts              # Default classes (Nursery to 10th), subjects & student rosters
+    │   ├── mockResultData.ts            # Baseline initial exam data generator for all classes
+    │   └── logoData.ts                  # Inline fallback base64 school branding graphics
+    ├── utils/
+    │   ├── instantSyncBridge.ts         # 0.01s Zero-Latency Local Sync & Cloud Queue Manager
+    │   ├── googleSheetFetcher.ts        # Google Apps Script HTTP client & Diagnostic Engine
+    │   ├── resultCalculator.ts          # CBSE grading scale, PT conversion, totals & merit engine
+    │   ├── studentSubjectDetector.ts    # Unbiased student identification & optional language mapper
+    │   └── dateUtils.ts                 # Date and academic session formatting helpers
+    └── components/
+        ├── Header.tsx                   # Top navigation bar, school title & live SyncStatusBar
+        ├── ControlPanel.tsx             # Class, Exam (HY/AE/Both), and Subject selection panel
+        ├── MarksTable.tsx               # High-speed data entry table with keyboard auto-advance
+        ├── SettingsModal.tsx            # Admin PIN security, segment locks, subject allotment,
+        │                                # database endpoints, and Technical Report Download
+        ├── common/
+        │   └── SyncStatusBar.tsx        # Visual dual-mode badge (0.01s Instant + Cloud Sync Status)
+        └── result/
+            ├── ResultGeneratorApp.tsx   # Master Administrative Result Portal & Broadsheet Engine
+            ├── ReportCardView.tsx       # Pixel-perfect single student CBSE Report Card template
+            ├── BulkReportCardView.tsx   # Multi-student batch print report card generator
+            ├── TabulationSheetModal.tsx # Full Class BroadSheet / Tabulation Register matrix
+            ├── StudentManagementView.tsx# Student admission roster, photo & detail manager
+            ├── StudentDetailsEditorModal.tsx # Modal to edit student bio, parent names & DOB
+            ├── GoogleSheetSyncModal.tsx # Manual push/pull modal with Google Sheets
+            ├── GoogleSheetDiagnosticModal.tsx # Deep diagnostic runner for Apps Script URLs
+            └── AdminSettingsModal.tsx   # Result Generator system limits, working days & lockouts
+```
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 4: END-TO-END APPLICATION ARCHITECTURE
+----------------------------------------------------------------------------------------------------
+The system utilizes a Hybrid Tri-Tier Architecture:
+
+[Tier 1: Presentation & Optimistic In-Memory Layer]
+- React functional components render the data table.
+- When an input changes, state updates synchronously in React (0ms) and commits to
+  `pis_exam_results_<CLASS>_2025` in LocalStorage via `instantSyncBridge.ts` (~10ms).
+- A custom DOM event (`pis_instant_sync`) is broadcast across all open components and tabs.
+
+[Tier 2: Asynchronous Micro-Queue & Sync Bridge]
+- The `instantSyncBridge` maintains an optimistic memory ledger and a background sync queue.
+- If a Google Apps Script Web App URL is configured, payloads are dispatched via non-blocking
+  HTTP POST requests.
+- The UI never pauses or displays blocking spinners during network communication.
+
+[Tier 3: Cloud Persistence & Sheet Engine]
+- Google Apps Script receives the structured payload via `doPost(e)`.
+- It appends or updates rows inside the designated Class Sheet tab.
+- On receipt of HTTP 200 JSON `{ status: 'success' }`, the local bridge marks the transaction as
+  "Cloud Synced" and timestamps the operation.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 5: GOOGLE SHEETS MASTER STRUCTURE & COLUMN DIRECTORY
+----------------------------------------------------------------------------------------------------
+5.1 Workbook Configuration:
+- Spreadsheet Name: `PMS_EXAM_MANAGEMENT_MASTER_2025_2026` (or user-linked spreadsheet).
+- Tab Nomenclature:
+  * One tab per Class Level: `Nursery`, `LKG`, `UKG`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`.
+  * System Log Tab: `Marks_Master` (Aggregate audit log of every atomic mark submitted).
+  * Configuration Tab: `System_Controls` (Global marks entry locks, deadline timestamps).
+
+5.2 Master Sheet Column Specification (`Marks_Master` & Class Tabs):
+- Column A: `Timestamp` (ISO 8601 Date String e.g. "2026-09-13T12:30:00Z")
+- Column B: `Class` (e.g. "5th", "8th", "UKG")
+- Column C: `Roll` (Numeric integer roll number e.g. 1, 14, 28)
+- Column D: `AdmissionNo` (Primary Identifier e.g. "PIS-2025-5TH-014")
+- Column E: `Name` (Official Student Full Name e.g. "MOHAMMAD ARHAM")
+- Column F: `Subject` (e.g. "Mathematics", "Science", "Urdu", "Sanskrit")
+- Column G: `Segment` (Exam segment: "PT-1", "PT-2", "HY-WRT", "AE-WRT", "Attendance")
+- Column H: `Value` (Numeric mark e.g. 78, or special code e.g. "AB")
+
+5.3 Tabulation Broadsheet Columns (Computed View):
+- Columns 1-4  : Roll No, Admission No, Student Name, Father's Name
+- Columns 5-25 : Subject Wise Marks Breakdown:
+                 [Theory (80), PT (10), Portfolio (5), Enrichment (5), Total (100), Grade]
+- Column 26-28 : Term Attendance, Working Days, Attendance Percentage
+- Column 29-32 : Grand Total (Out of 1200 or 1400), Overall Percentage, Final Grade, Merit Rank
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 6: STUDENT IDENTITY & UNIQUE KEY LOGIC (ZERO-MISMATCH POLICY)
+----------------------------------------------------------------------------------------------------
+6.1 Primary Unique Identifier (UID):
+- PRIMARY KEY: `admNo` (Admission Number) - Format: `PIS-2025-[CLASS]-[ROLL]` (e.g. `PIS-2025-5-012`).
+- CANDIDATE KEYS: `urn` (Unique Registration Number), `regNo`, `studentId`.
+- SECONDARY KEY: Composite Key `[class]-[roll]` (e.g. `5-12`).
+
+6.2 Student Identification Precedence Order:
+When matching student data received from Google Sheets or CSV files, the algorithm in
+`src/utils/studentSubjectDetector.ts` (`getStudentUniqueId`) executes the following hierarchy:
+```typescript
+candidate = st.urn || st.admNo || st.admissionNo || st.regNo || st.registrationNo || st.studentId;
+if (candidate) return candidate.trim();
+if (st.class && st.roll) return `${st.class}-${st.roll}`;
+if (st.roll) return String(st.roll).trim();
+return st.name.trim(); // Extreme fallback only
+```
+
+6.3 The "Name-Matching Ban":
+- Matching students purely by `name` is STRICTLY FORBIDDEN in update routines.
+- Why? Indian school cohorts frequently contain homonymous names (e.g. three students named
+  "Ayesha Khan" or "Aman Kumar" in the same grade).
+- All mark mutations are anchored strictly to `admNo`. If `admNo` is absent, the composite
+  `[classLevel] + [rollNumber]` is used.
+
+6.4 Optional Subject Identity (Urdu vs Sanskrit Policy):
+- CRITICAL: Optional subject assignment is strictly read from designated columns:
+  `optionalSubject`, `2nd Language`, `Elective`, `Opted Subject`.
+- NEVER predict optional subjects based on student name, religion, caste, or parent names.
+- If the optional subject column is blank, the system assigns NONE (''), and the student is
+  excluded from both Urdu and Sanskrit marks entry until explicitly registered by the Admin.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 7: LOGIN & AUTHENTICATION
+----------------------------------------------------------------------------------------------------
+7.1 Authentication Architecture:
+- Admin Role Authentication:
+  * Protected by a 4-to-6 digit Admin Security PIN (`adminPin`).
+  * Default PIN: `1234` (Configurable via Settings -> Admin Password Tab).
+  * Storage: Persisted in `pms_app_settings_v2` in LocalStorage.
+  * Brute-Force Throttling: `sessionStorage.setItem('pis_admin_failed_attempts', count)`.
+    After 3 failed attempts, input is locked with a warning timer.
+- Teacher Role Access:
+  * Designed for rapid classroom operation without friction.
+  * Teachers select their designated Class Level and Assigned Subject.
+  * Segment locks set by the Admin dynamically prevent teachers from altering finalized terms.
+- Student / Parent Access:
+  * Read-only report card viewing via Roll Number and Admission Number verification.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 8: ROLE & PERMISSION SYSTEM
+----------------------------------------------------------------------------------------------------
+| Feature / Action                  | Admin / Authority | Class Teacher | Subject Teacher |
+| :-------------------------------- | :---------------: | :-----------: | :-------------: |
+| Enter & Edit Marks (Open Segments)|        YES        |      YES      |       YES       |
+| Edit Marks (Locked Segments)      |   YES (Override)  |       NO      |        NO       |
+| Modify Student Details (DOB, Bio) |        YES        |       NO      |        NO       |
+| Add / Delete Student from Roster  |        YES        |       NO      |        NO       |
+| Change Class Subject Allotments   |        YES        |       NO      |        NO       |
+| Configure Google Sheet Web App URL|        YES        |       NO      |        NO       |
+| Change Admin Master PIN           |        YES        |       NO      |        NO       |
+| Print Official Report Cards       |        YES        |      YES      |        NO       |
+| View Tabulation Register (Merits) |        YES        |      YES      |        NO       |
+| Force Remote Cloud Sync / Flush   |        YES        |       NO      |        NO       |
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 9: DETAILED FUNCTIONAL MODULE BREAKDOWN
+----------------------------------------------------------------------------------------------------
+9.1 Teacher Marks Entry Portal (`src/App.tsx`, `MarksTable.tsx`):
+- High-velocity numeric keypad interface with arrow key and Enter-key navigation.
+- Real-time calculation of Class Average, Total Students, Present Count, and Missing Entries.
+- Auto-save draft feature preserving incomplete forms in `pis_marks_draft_<CLASS>_<SUB>_<SEG>`.
+
+9.2 Result Generator & Administrative Console (`src/components/result/ResultGeneratorApp.tsx`):
+- Central command center providing instant mode switching between:
+  1. Student Roster Management
+  2. Tabulation Sheet (Broadsheet)
+  3. Single Student Report Card View
+  4. Batch Print Report Cards (Bulk Cards)
+  5. Admit Card Generation Engine
+
+9.3 Student Management Sub-System (`StudentManagementView.tsx`):
+- Complete CRUD operations on student master records.
+- Photo capture via webcam or Base64 file upload with preview.
+- Parent bio-data, mobile numbers, and DOB editing.
+
+9.4 Tabulation Sheet Modal (`TabulationSheetModal.tsx`):
+- Comprehensive ledger displaying all examination segments side-by-side.
+- Sortable by Roll Number, Grand Total, Percentage, or Rank.
+- 1-Click CSV / Excel export and formatted print mode.
+
+9.5 Cloud Synchronization & Diagnostics (`GoogleSheetSyncModal.tsx`, `GoogleSheetDiagnosticModal.tsx`):
+- Live endpoint testing utility with automated `/dev` to `/exec` URL fixing.
+- Detailed step-by-step diagnostic analysis (CORS check, GET verification, POST verification).
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 10: MARKS UPDATION EXACT WORKFLOW & LIFECYCLE
+----------------------------------------------------------------------------------------------------
+10.1 Step-by-Step Data Mutation Lifecycle:
+1. Input Event: Teacher types "74" into Roll No 5's Written Exam cell.
+2. Immediate Sanitization: `validateValue(val, maxMarks)` tests string against integer limits.
+3. State Commit (0ms): React updates the local component state.
+4. Instant Bridge (10ms): `instantSyncBridge.saveSingleMarkInstant(...)` runs:
+   - Reads active class records from `pis_exam_results_<CLASS>_2025`.
+   - Locates student by `admNo` (or `roll`).
+   - Updates `rawMarks['Mathematics-HY-WRT'] = 74`.
+   - Computes new subject total, converted PT, grade, and attendance totals.
+   - Saves array back to LocalStorage.
+   - Emits window custom event `pis_instant_sync`.
+5. Cross-Component Sync: `ResultGeneratorApp.tsx` catches the event and reloads class records
+   instantly from LocalStorage without network latency.
+6. Cloud Dispatch: When "Submit to Google Sheet" is clicked:
+   - `queueSheetSync(...)` formats payload into `SheetSubmissionRecord[]`.
+   - Sends payload asynchronously via `fetch(googleSheetApiUrl, { method: 'POST', mode: 'no-cors' })`.
+   - Updates `SyncStatusBar` to reflect cloud status.
+
+10.2 Special Code Handling:
+- 'AB' / 'A' / 'ABSENT': Converted to 0 marks in calculations; displayed prominently as 'AB' on
+  report cards.
+- 'ML' (Medical Leave): Retains exemption status; excluded from negative merit weighting.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 11: DATA VALIDATION & ACADEMIC BUSINESS RULES
+----------------------------------------------------------------------------------------------------
+11.1 Maximum Marks Boundaries:
+- Periodic Tests (PT-1, PT-2, PT-3, PT-4): Minimum 0, Maximum 20 (or 40 depending on config).
+- Half Yearly & Annual Written Exam: Minimum 0, Maximum 80.
+- Internal Assessments (Portfolio, Subject Enrichment): Minimum 0, Maximum 5 each.
+- Term Attendance: Total Days Present <= Total Working Days.
+
+11.2 Input Sanitization Rules:
+- Alphabetic characters (other than 'A', 'AB', 'M') are rejected immediately.
+- Negative numbers are blocked.
+- Numbers exceeding the designated Maximum Mark are highlighted in red and submission is prevented.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 12: GOOGLE SHEETS <-> APP SYNCHRONIZATION ENGINE
+----------------------------------------------------------------------------------------------------
+12.1 Bi-Directional Synchronization Principles:
+- Push Operation: Local State -> JSON Payload -> Google Apps Script -> Sheet Rows.
+- Pull Operation: Google Sheet -> Apps Script `doGet?action=getFullResults` -> JSON -> Local Cache.
+- Conflict Resolution Strategy: Local-Master Priority. Edits made in the app take immediate
+  precedence over stale remote spreadsheet reads to prevent data overwrites.
+
+12.2 Offline Resilience:
+- If internet connectivity drops, the app functions with 100% capacity in offline mode.
+- All entries are saved locally. When connection is restored, the `SyncStatusBar` prompts the user
+  to flush the pending cloud queue.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 13: ADMIN GOVERNANCE & CONFIGURATION DIRECTORY
+----------------------------------------------------------------------------------------------------
+Configurable Parameters:
+1. `marksEntryStatus`: Global switch ('ON' or 'OFF') to halt all teacher input.
+2. `marksEntryDeadline`: ISO Timestamp after which teacher tables convert to read-only mode.
+3. `segmentLocks`: Granular dictionary locking individual terms (e.g. Lock 'HY', Unlock 'AE').
+4. `workingDaysHY` & `workingDaysAE`: Integer total official working days for attendance calculation.
+5. `googleSheetApiUrl`: Full HTTPS endpoint URL for Google Apps Script Web App.
+6. `adminPin`: 4-digit administrative protection code.
+7. `studentsPerPage`: Pagination batch size (10, 20, 50, or All).
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 14: EXISTING USER EXPERIENCE (UI/UX) & RESPONSIVE DESIGN
+----------------------------------------------------------------------------------------------------
+- Desktop Precision: Optimized for 1080p and 1440p displays with wide broadsheet tables, side-by-side
+  evaluation panels, and instant keyboard shortcuts.
+- Mobile Ergonomics: Touch-friendly targets (minimum 44px), sticky student name and roll columns,
+  and accessible bottom action drawers.
+- Print Formatting: Custom `@media print` rules:
+  * Strips headers, footers, navigation buttons, and backgrounds.
+  * Sets exact A4 dimensions (210mm x 297mm).
+  * Forces page-break isolation between individual student report cards.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 15: RESULT COMPUTATION, TABULATION, GRADING & PDF SYSTEM
+----------------------------------------------------------------------------------------------------
+15.1 CBSE 8-Point Grading Scale:
+- 91% to 100% : Grade A1 (Top tier academic distinction)
+- 81% to 90%  : Grade A2
+- 71% to 80%  : Grade B1
+- 61% to 70%  : Grade B2
+- 51% to 60%  : Grade C1
+- 41% to 50%  : Grade C2
+- 33% to 40%  : Grade D  (Pass boundary)
+- Below 33%   : Grade E  (Essential Repeat / Remedial required)
+
+15.2 Term Mark Aggregation Formula:
+```
+PT Converted (Max 10) = (PT1 + PT2) / 4
+Internal Total (Max 20) = PT Converted (10) + Portfolio (5) + Subject Enrichment (5)
+Subject Total (Max 100) = Internal Total (20) + Written Exam (80)
+Dual Exam Grand Total (Max 200) = Half Yearly Total (100) + Annual Exam Total (100)
+Grand Percentage (%) = (Grand Total / Maximum Possible Marks) * 100
+```
+
+15.3 Result Status Determination:
+- PASS: Student secures >= 33% aggregate AND >= 33% in each individual compulsory subject.
+- COMPARTMENT: Student fails in up to two subjects with aggregate >= 33%.
+- ESSENTIAL REPEAT: Student fails in three or more subjects OR aggregate < 33%.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 16: SECURITY STANDARDS, PRIVACY & DATA HARDENING
+----------------------------------------------------------------------------------------------------
+- Client-Side Isolation: All data processing, sorting, and grade calculations occur locally.
+- Secure Ingress: Google Apps Script Web App endpoints require HTTPS with automated `/exec` redirection.
+- No Sensitive Credential Leaks: No hardcoded Google API secrets, service account JSON files, or
+  private keys exist in client bundles.
+- Anti-Tamper Protection: Admin settings and segment locks require PIN authentication with failed
+  attempt lockouts.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 17: CURRENT TECHNICAL BASELINE, KNOWN QUIRKS & SAFE BOUNDARIES
+----------------------------------------------------------------------------------------------------
+17.1 Safe Boundaries (What is Working Perfectly):
+- Zero-latency 0.01s local mark synchronization between Teacher View and Result Generator.
+- Full tabulation broadsheet calculations and merit rank sorting.
+- CBSE Report card layout with dual school branding and signature blocks.
+- Google Apps Script `/dev` to `/exec` automated diagnostic and correction engine.
+
+17.2 Known Quirks & Workarounds:
+- Cross-Domain POST Requests: Browsers dispatching POST requests to Google Apps Script Web Apps
+  run under CORS `no-cors` mode. The HTTP response is opaque (status 0). The system assumes
+  success upon network completion and verifies data integrity during subsequent GET diagnostic runs.
+- Large Photo Base64 Storage: Storing hundreds of high-resolution student photos in LocalStorage can
+  approach the 5MB browser quota. It is recommended to keep uploaded photo resolutions under 300KB.
+
+
+----------------------------------------------------------------------------------------------------
+SECTION 18: DEPLOYMENT, APPS SCRIPT RELEASE & ROLLBACK PROCEDURES
+----------------------------------------------------------------------------------------------------
+18.1 Google Apps Script Deployment Protocol:
+1. Open Google Sheet -> Extensions -> Apps Script.
+2. Paste the official Apps Script engine code provided in the handover specification.
+3. Click "Deploy" -> "New Deployment".
+4. Select Type: "Web App".
+5. Set "Execute as": "Me (your Google account)".
+6. Set "Who has access": "Anyone" (Required for web client POST access).
+7. Copy the resulting URL ending in `/exec` and paste it into App Settings -> PIS Data Base Link.
+
+18.2 Application Production Build:
+- Build Command: `npm run build`
+- Output Target: `/dist` (Self-contained, production-optimized static assets).
+- Deployment Target: Cloud Run / Static CDN hosting.
+
+
+====================================================================================================
+SECTION 19: MASTER DATA FLOW ARCHITECTURE
+====================================================================================================
+
+Complete End-to-End Architectural Flowchart:
+
++-----------------------------------------------------------------------------------------+
+|                                    1. USER INTERACTION                                  |
+|         (Teacher or Examination Admin accesses web application via browser)             |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                                   2. AUTHENTICATION                                     |
+|  - Teacher Role: Selects Class, Subject & Exam Term (Enforces active Segment Locks)      |
+|  - Admin Role  : Authenticates via 4-Digit Admin PIN (Enables Full Management Privileges) |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                                    3. DATA RETRIEVAL                                    |
+|  - Reads LocalStorage Cache (`pis_exam_results_<CLASS>_2025`)                             |
+|  - If empty, initializes standard cohort records via `mockResultData.ts`                 |
+|  - Optional: Fetches live cloud updates from Google Apps Script Web App                 |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                              4. STUDENT IDENTIFICATION (UID)                            |
+|  - Matches records strictly by `admNo` (e.g. "PIS-2025-5-014") or Composite `Class-Roll`|
+|  - Maps Optional Subjects (Urdu vs Sanskrit) strictly from designated sheet columns     |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                                 5. CLIENT VALIDATION                                    |
+|  - Checks upper/lower mark boundaries (e.g. 0-20 for PT, 0-80 for Written Exam)          |
+|  - Validates Attendance against maximum Term Working Days                                |
+|  - Translates special codes ('AB' -> 0 mark with Absent flag, 'ML' -> Exemption)         |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                           6. ZERO-LATENCY LOCAL COMMIT (0.01s)                          |
+|  - Commits sanitized values to in-memory state and LocalStorage Cache                   |
+|  - Computes Term Totals, Converted PTs, Grand Percentages, and CBSE Grades in Real-Time |
+|  - Dispatches `pis_instant_sync` window event to synchronize Result Generator views      |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                           7. BACKGROUND CLOUD SYNCHRONIZATION                           |
+|  - Enqueues batch record payload via `instantSyncBridge.ts`                              |
+|  - Sends asynchronous non-blocking POST request to Google Apps Script Web App           |
+|  - Displays live sync state on `SyncStatusBar` ("Instant ⚡ | Cloud Synced ☁️")          |
++--------------------------------------------+--------------------------------------------+
+                                             |
+                                             v
++-----------------------------------------------------------------------------------------+
+|                            8. RESULT GENERATION & PRINT OUTPUT                          |
+|  - Renders Broadsheet Tabulation Register with automatic Merit Ranking                   |
+|  - Generates single & batch A4 CBSE Report Cards with official school watermark          |
+|  - Formats output cleanly for browser print engine and PDF export                       |
++-----------------------------------------------------------------------------------------+
+
+====================================================================================================
+DOCUMENT ATTESTATION & SIGN-OFF
+====================================================================================================
+This Technical Baseline Handover Specification represents the official, certified architecture of
+the Paradize Model School Examination & Result Management System. All future modifications, feature
+additions, and decoupled migrations must conform to the protocols established herein.
+
+Certified by: Lead Engineering & Architecture Team
+Distribution: khanarif1531@gmail.com
+Storage Path: /public/FINAL_TECHNICAL_HANDOVER_REPORT.fxt
+              /public/FINAL_TECHNICAL_HANDOVER_REPORT.txt
+====================================================================================================

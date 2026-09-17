@@ -1,0 +1,6 @@
+{
+  "name": "Mark Updation System",
+  "description": "Comprehensive CBSE examination management suite for Peace International School featuring Result Generator, A4 Progress Reports, Class Tabulation Registers, and Teacher Marks/Attendance Updation Portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
