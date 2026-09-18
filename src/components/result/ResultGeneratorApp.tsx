@@ -37,6 +37,7 @@ import { GoogleSheetStructureModal } from './GoogleSheetStructureModal';
 import { ResultNavigationSidebar } from './ResultNavigationSidebar';
 import { StudentManagementView } from './StudentManagementView';
 import { GoogleSheetDiagnosticModal } from './GoogleSheetDiagnosticModal';
+import { MarksAuditView } from './MarksAuditView';
 import { fetchClassResultsFromGoogle } from '../../utils/googleSheetFetcher';
 import { instantSyncBridge } from '../../utils/instantSyncBridge';
 import { getStudentURN, normalizeURN } from '../../utils/studentIdentity';
@@ -78,7 +79,9 @@ import {
   Wrench,
   CheckCircle2,
   AlertCircle,
-  PanelLeft
+  PanelLeft,
+  ClipboardCheck,
+  PenTool
 } from 'lucide-react';
 
 interface ResultGeneratorAppProps {
@@ -967,170 +970,290 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
 
         {/* Controls Toolbar (Hidden in Print) */}
         <div className="no-print bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-4 mb-6">
-          {/* Consolidated Action-Bar Row: Document Type Selector + Action Controls */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-            {/* Unified Document Selector (Segmented on Large, Select on Mobile) */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden xl:inline">
-                Document:
-              </span>
+          {/* Action-Bar & Compact Two-Row Navigation Container */}
+          <div className="space-y-2.5 border-b border-slate-100 pb-3.5">
+            {/* Top Sub-Bar: Active Module Context / Mobile Picker + Utility Action Tools */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              {/* Left: Active Section Indicator & Mobile Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider hidden sm:inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                  Navigation:
+                </span>
 
-              {/* Mobile / Tablet Dropdown Selector */}
-              <div className="md:hidden w-full sm:w-auto">
-                <select
-                  id="select-document-type-mobile"
-                  value={viewMode}
-                  onChange={(e) => setViewMode(e.target.value as ResultViewMode)}
-                  className="w-full text-xs font-bold text-slate-800 bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                >
-                  <option value="student_management">👥 Student Management (अपडेट/हटाएं)</option>
-                  <option value="report_card">🎓 Single Report Card</option>
-                  <option value="bulk_cards">📦 Batch Cards ({classRecords.length})</option>
-                  <option value="tabulation_sheet">📊 Tabulation Register</option>
-                  <option value="dashboard">📈 Class Progress Tracker</option>
-                  <option value="admit_card">🪪 Admit Card Generator</option>
-                </select>
+                {/* Mobile / Small Screen Quick Dropdown Selector */}
+                <div className="sm:hidden w-full">
+                  <select
+                    id="select-document-type-mobile"
+                    value={viewMode}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'marks_portal') {
+                        if (onSwitchToMarkUpdation) onSwitchToMarkUpdation();
+                      } else if (val === 'admin_controls') {
+                        setIsAdminModalOpen(true);
+                      } else {
+                        setViewMode(val as ResultViewMode);
+                      }
+                    }}
+                    className="w-full text-xs font-bold text-slate-800 bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-2xs"
+                  >
+                    <option value="student_management">👥 Student Management (छात्र प्रबंधन)</option>
+                    <option value="report_card">🎓 Single Report Card (प्रगति पत्रक)</option>
+                    <option value="bulk_cards">📦 Batch Cards ({classRecords.length}) (समस्त कक्षा)</option>
+                    <option value="tabulation_sheet">📊 Tabulation Register (अंक तालिका)</option>
+                    <option value="dashboard">📈 Class Progress &amp; Analytics (प्रगति ट्रैकर)</option>
+                    <option value="admit_card">🪪 Admit Card Generator (प्रवेश पत्र)</option>
+                    <option value="marks_audit">📋 Official Marks Audit (अंक सत्यापन)</option>
+                    {onSwitchToMarkUpdation && (
+                      <option value="marks_portal">✍️ Marks Portal (अंक प्रविष्टि पोर्टल)</option>
+                    )}
+                    <option value="admin_controls">⚙️ System Control Panel (व्यवस्थापक नियंत्रण)</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Desktop Segmented Tab Group */}
-              <div className="hidden md:flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl border border-slate-200/80">
+              {/* Right: Action Tools & Controls */}
+              <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                {/* Preview Toggle Button (When on Report Card or Batch Cards) */}
+                {(viewMode === 'report_card' || viewMode === 'bulk_cards') && (
+                  <button
+                    id="btn-toggle-report-preview-row"
+                    type="button"
+                    onClick={() => {
+                      if (viewMode === 'report_card') {
+                        setIsPreviewExpanded(prev => !prev);
+                      } else {
+                        setIsBatchPreviewExpanded(prev => !prev);
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+                      (viewMode === 'report_card' ? isPreviewExpanded : isBatchPreviewExpanded)
+                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                        : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-800'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>
+                      {(viewMode === 'report_card' ? isPreviewExpanded : isBatchPreviewExpanded)
+                        ? (viewMode === 'report_card' ? 'Hide Preview' : 'Hide Batch Preview')
+                        : (viewMode === 'report_card' ? 'Preview / View Report' : 'Preview Batch Cards')}
+                    </span>
+                  </button>
+                )}
+
+                {/* Sheet Structure Modal Trigger */}
+                <button
+                  id="btn-toolbar-sheet-structure"
+                  onClick={() => setIsSheetStructureOpen(true)}
+                  className="px-2.5 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="Sheet Structure & Excel Import"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="hidden sm:inline">Sheet &amp; Excel</span>
+                </button>
+
+                {/* System Control Panel Trigger */}
+                <button
+                  id="btn-toolbar-control-panel"
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="px-2.5 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="System Control Panel & Examination Settings"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-700" />
+                  <span className="hidden md:inline">Control Panel</span>
+                </button>
+
+                {/* Quick Download PDF */}
+                <button
+                  id="btn-toolbar-quick-download-pdf"
+                  onClick={() => {
+                    if (viewMode === 'bulk_cards') {
+                      handleDownloadBatchPdf();
+                    } else if (currentStudent) {
+                      handleDownloadSinglePdf(currentStudent);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold bg-[#1b4332] hover:bg-[#153527] text-white rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  title="Download A4 PDF Report Card"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Download PDF</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Compact Two-Row Module Navigation Grid (Responsive 2-Row Layout) */}
+            <div className="bg-slate-100/90 rounded-xl p-1.5 border border-slate-200/80 shadow-2xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                {/* Row 1: Academic & Examination Documents (4 items) */}
                 <button
                   id="tab-student-management"
                   onClick={() => setViewMode('student_management')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'student_management' 
-                      ? 'bg-white text-indigo-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/90 ring-1 ring-indigo-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
                   title="Student Management: View, Update, Add or Delete Students"
                 >
-                  <Users className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Student Mgmt</span>
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <Users className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'student_management' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="truncate">Student Mgmt</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'student_management' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    Manage
+                  </span>
                 </button>
 
                 <button
                   id="tab-single-card"
                   onClick={() => setViewMode('report_card')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'report_card' 
-                      ? 'bg-white text-indigo-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/90 ring-1 ring-indigo-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
+                  title="Single Report Card: Individual Student Progress Card"
                 >
-                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Report Card</span>
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <GraduationCap className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'report_card' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="truncate">Report Card</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'report_card' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    Single
+                  </span>
                 </button>
 
                 <button
                   id="tab-batch-cards"
                   onClick={() => setViewMode('bulk_cards')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'bulk_cards' 
-                      ? 'bg-white text-indigo-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/90 ring-1 ring-indigo-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
+                  title={`Batch Cards: View and print all ${classRecords.length} class students`}
                 >
-                  <Layers className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Batch Cards ({classRecords.length})</span>
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <Layers className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'bulk_cards' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="truncate">Batch Cards</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'bulk_cards' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    {classRecords.length}
+                  </span>
                 </button>
 
                 <button
                   id="tab-tabulation"
                   onClick={() => setViewMode('tabulation_sheet')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'tabulation_sheet' 
-                      ? 'bg-white text-indigo-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/90 ring-1 ring-indigo-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
+                  title="Tabulation Register: Full examination marks tabulation"
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Tabulation</span>
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <FileSpreadsheet className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'tabulation_sheet' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="truncate">Tabulation</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'tabulation_sheet' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    CBSE
+                  </span>
                 </button>
 
+                {/* Row 2: Analytics, Slips, Audit & Portal (4 items) */}
                 <button
                   id="tab-dashboard"
                   onClick={() => setViewMode('dashboard')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'dashboard' 
-                      ? 'bg-white text-indigo-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-indigo-950 shadow-xs border border-indigo-200/90 ring-1 ring-indigo-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
+                  title="Class Analytics: Progress metrics, graphs and pass rate"
                 >
-                  <BarChart2 className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Progress</span>
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="truncate">Analytics</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'dashboard' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    Stats
+                  </span>
                 </button>
 
                 <button
                   id="tab-admit-card"
                   onClick={() => setViewMode('admit_card')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
                     viewMode === 'admit_card' 
-                      ? 'bg-white text-emerald-950 shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-emerald-950 shadow-xs border border-emerald-300 ring-1 ring-emerald-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
                   }`}
+                  title="Admit Card Generator: Print exam hall tickets & desk slips"
                 >
-                  <Contact className="w-3.5 h-3.5 text-emerald-700" />
-                  <span>Admit Card</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Right Action Tools in Consolidated Row */}
-            <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
-              {/* Preview Toggle Button (When on Report Card or Batch Cards) */}
-              {(viewMode === 'report_card' || viewMode === 'bulk_cards') && (
-                <button
-                  id="btn-toggle-report-preview-row"
-                  type="button"
-                  onClick={() => {
-                    if (viewMode === 'report_card') {
-                      setIsPreviewExpanded(prev => !prev);
-                    } else {
-                      setIsBatchPreviewExpanded(prev => !prev);
-                    }
-                  }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
-                    (viewMode === 'report_card' ? isPreviewExpanded : isBatchPreviewExpanded)
-                      ? 'bg-amber-50 border-amber-300 text-amber-900'
-                      : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-800'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>
-                    {(viewMode === 'report_card' ? isPreviewExpanded : isBatchPreviewExpanded)
-                      ? (viewMode === 'report_card' ? 'Hide Preview' : 'Hide Batch Preview')
-                      : (viewMode === 'report_card' ? 'Preview / View Report' : 'Preview Batch Cards')}
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <Contact className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'admit_card' ? 'text-emerald-700' : 'text-slate-400'}`} />
+                    <span className="truncate">Admit Card</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'admit_card' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    Desk
                   </span>
                 </button>
-              )}
 
-              {/* Sheet Structure Modal Trigger */}
-              <button
-                id="btn-toolbar-sheet-structure"
-                onClick={() => setIsSheetStructureOpen(true)}
-                className="px-2.5 py-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                title="Sheet Structure & Excel Import"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-                <span className="hidden sm:inline">Sheet &amp; Excel</span>
-              </button>
+                <button
+                  id="tab-marks-audit"
+                  onClick={() => setViewMode('marks_audit')}
+                  className={`h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate ${
+                    viewMode === 'marks_audit' 
+                      ? 'bg-white text-amber-950 shadow-xs border border-amber-300 ring-1 ring-amber-500/20' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/70 border border-transparent'
+                  }`}
+                  title="Official Marks Audit: Verified entry logs, teacher sign-off & exports"
+                >
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <ClipboardCheck className={`w-3.5 h-3.5 shrink-0 ${viewMode === 'marks_audit' ? 'text-amber-700' : 'text-slate-400'}`} />
+                    <span className="truncate">Marks Audit</span>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                    viewMode === 'marks_audit' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200/80 text-slate-500'
+                  }`}>
+                    Audit
+                  </span>
+                </button>
 
-              {/* Quick Download PDF */}
-              <button
-                id="btn-toolbar-quick-download-pdf"
-                onClick={() => {
-                  if (viewMode === 'bulk_cards') {
-                    handleDownloadBatchPdf();
-                  } else if (currentStudent) {
-                    handleDownloadSinglePdf(currentStudent);
-                  }
-                }}
-                className="px-3 py-1.5 text-xs font-bold bg-[#1b4332] hover:bg-[#153527] text-white rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                title="Download A4 PDF Report Card"
-              >
-                <Download className="w-3.5 h-3.5 text-amber-300" />
-                <span>Download PDF</span>
-              </button>
+                <button
+                  id="tab-marks-portal"
+                  onClick={() => {
+                    if (onSwitchToMarkUpdation) {
+                      onSwitchToMarkUpdation();
+                    }
+                  }}
+                  className="h-9 px-2.5 sm:px-3 text-xs font-bold rounded-lg flex items-center justify-between gap-1.5 transition-all cursor-pointer truncate text-emerald-800 hover:text-emerald-950 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/80 shadow-2xs"
+                  title="Switch to Mark Updation Portal: Enter or edit marks"
+                >
+                  <div className="flex items-center gap-2 truncate min-w-0">
+                    <PenTool className="w-3.5 h-3.5 shrink-0 text-emerald-700" />
+                    <span className="truncate">Marks Portal</span>
+                  </div>
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 bg-emerald-200/80 text-emerald-900">
+                    Entry &rarr;
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2099,6 +2222,16 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
                 onUpdateStudentPhoto={handleUpdateStudentPhoto}
                 subjectAllotments={subjectAllotments}
                 classAllottedSubjects={classAllottedSubjects}
+              />
+            )}
+
+            {/* VIEW 6: OFFICIAL MARKS AUDIT REGISTRY */}
+            {viewMode === 'marks_audit' && (
+              <MarksAuditView
+                selectedClass={selectedClass}
+                onClassChange={(cls) => setSelectedClass(cls)}
+                students={classRecords}
+                allottedSubjects={classAllottedSubjects}
               />
             )}
           </>

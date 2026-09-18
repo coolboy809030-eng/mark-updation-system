@@ -33,7 +33,8 @@ import {
   ExternalLink,
   Download,
   FolderLock,
-  Maximize2
+  Maximize2,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface ResultNavigationSidebarProps {
@@ -173,6 +174,7 @@ export const ResultNavigationSidebar: React.FC<ResultNavigationSidebarProps> = (
     { id: 'student_management' as ResultViewMode, label: 'Student Management', desc: 'Edit, Update & Delete Records', icon: Users, badge: 'Manage' },
     { id: 'report_card' as ResultViewMode, label: 'Single Report Card', desc: 'Individual A4 Student Card', icon: GraduationCap, badge: 'Main' },
     { id: 'tabulation_sheet' as ResultViewMode, label: 'Tabulation Register', desc: 'CBSE Full Mark Register', icon: FileSpreadsheet, badge: 'CBSE' },
+    { id: 'marks_audit' as ResultViewMode, label: 'Official Marks Audit', desc: 'Audit Log, Teacher Sign & Export', icon: ClipboardCheck, badge: 'Audit' },
     { id: 'dashboard' as ResultViewMode, label: 'Class Progress Tracker', desc: 'Analytics & Pass Metrics', icon: BarChart2, badge: 'Stats' },
     { id: 'admit_card' as ResultViewMode, label: 'Admit Card Generator', desc: 'Desk & Exam Hall Slips', icon: Contact, badge: 'Desk' },
     { id: 'bulk_cards' as ResultViewMode, label: 'Batch Cards (All Class)', desc: `All ${classRecords.length} Class Students`, icon: Layers, badge: `${classRecords.length}` }
@@ -329,6 +331,21 @@ export const ResultNavigationSidebar: React.FC<ResultNavigationSidebarProps> = (
                 <FileSpreadsheet className="w-5 h-5" />
                 <span className="absolute left-14 bg-slate-900 text-white text-xs font-semibold px-2.5 py-1 rounded-md shadow-lg border border-slate-700 whitespace-nowrap hidden group-hover:block z-50 pointer-events-none">
                   Tabulation Register
+                </span>
+              </button>
+
+              <button
+                onClick={() => onViewModeChange('marks_audit')}
+                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group ${
+                  viewMode === 'marks_audit'
+                    ? 'bg-amber-400 text-slate-950 font-bold shadow-md shadow-amber-400/20'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+                title="Official Marks Audit"
+              >
+                <ClipboardCheck className="w-5 h-5" />
+                <span className="absolute left-14 bg-slate-900 text-white text-xs font-semibold px-2.5 py-1 rounded-md shadow-lg border border-slate-700 whitespace-nowrap hidden group-hover:block z-50 pointer-events-none">
+                  Official Marks Audit
                 </span>
               </button>
 

@@ -37,6 +37,13 @@ export async function exportReportCardToPdf({ element, filename }: ExportPdfOpti
       // Ensure the cloned card is rendered at standard A4 width without viewport distortions
       const clonedElement = clonedDoc.getElementById(element.id);
       if (clonedElement) {
+        // Unhide all ancestor containers in the clone so canvas can measure and render
+        let ancestor = clonedElement.parentElement;
+        while (ancestor && ancestor !== clonedDoc.body) {
+          ancestor.style.display = 'block';
+          ancestor = ancestor.parentElement;
+        }
+        clonedElement.style.display = 'block';
         clonedElement.style.boxShadow = 'none';
         clonedElement.style.margin = '0';
         clonedElement.style.width = `${targetA4PxWidth}px`;
@@ -109,6 +116,12 @@ export async function exportBatchReportCardsToPdf({
       onclone: (clonedDoc) => {
         const clonedElement = clonedDoc.getElementById(el.id);
         if (clonedElement) {
+          let ancestor = clonedElement.parentElement;
+          while (ancestor && ancestor !== clonedDoc.body) {
+            ancestor.style.display = 'block';
+            ancestor = ancestor.parentElement;
+          }
+          clonedElement.style.display = 'block';
           clonedElement.style.boxShadow = 'none';
           clonedElement.style.margin = '0';
           clonedElement.style.width = `${targetA4PxWidth}px`;

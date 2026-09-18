@@ -13,8 +13,12 @@ import {
   Send,
   AlertCircle,
   FileSpreadsheet,
-  X
+  X,
+  Database,
+  Edit3
 } from 'lucide-react';
+
+export type MarkVisualState = 'saved' | 'draft' | 'success' | 'failed' | 'empty';
 
 interface MarksTableProps {
   students: Student[];
@@ -42,6 +46,8 @@ interface MarksTableProps {
 
   // Values map: URN or roll -> value ('20', '80', 'AB', etc.)
   values: Record<string, string>;
+  savedBackendMarks?: Record<string, string>;
+  markVisualStates?: Record<string, MarkVisualState>;
   markStatuses?: Record<string, MarkStatus>;
   onValueChange: (identifier: string, value: string, student?: Student, correctionId?: string) => void;
 
@@ -53,7 +59,7 @@ interface MarksTableProps {
   // Submission
   onSubmit: () => void;
   isSubmitting: boolean;
-  onExportCsv: () => void;
+  onExportCsv?: () => void;
 }
 
 export const MarksTable: React.FC<MarksTableProps> = ({
@@ -73,6 +79,8 @@ export const MarksTable: React.FC<MarksTableProps> = ({
   approvedCorrections = [],
   onCorrectionRequest,
   values,
+  savedBackendMarks = {},
+  markVisualStates = {},
   markStatuses = {},
   onValueChange,
   currentPage,
@@ -334,16 +342,6 @@ export const MarksTable: React.FC<MarksTableProps> = ({
               <span className="font-bold text-amber-300">{pendingCount}</span>
             </div>
           )}
-
-          <button
-            type="button"
-            onClick={onExportCsv}
-            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium transition-colors flex items-center gap-1.5"
-            title="Download CSV Backup"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#D4AF37]" />
-            <span className="hidden sm:inline">Backup CSV</span>
-          </button>
         </div>
       </div>
 
@@ -353,6 +351,30 @@ export const MarksTable: React.FC<MarksTableProps> = ({
           className="h-full bg-gradient-to-r from-emerald-500 to-[#1B4D3E] transition-all duration-300"
           style={{ width: `${percentageCompleted}%` }}
         />
+      </div>
+
+      {/* Visual States Legend Bar */}
+      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider">
+          <span>Marks Visual Indicators:</span>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap text-xs">
+          <div className="flex items-center gap-1.5" title="Mark currently saved in backend Google Sheet">
+            <span className="w-3 h-3 rounded-full bg-blue-500 border border-blue-600 inline-block shadow-xs" />
+            <span className="font-bold text-blue-950">BLUE:</span>
+            <span className="text-slate-600">Saved (Backend)</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Mark modified locally — pending save">
+            <span className="w-3 h-3 rounded-full bg-amber-400 border border-amber-500 inline-block shadow-xs" />
+            <span className="font-bold text-amber-950">YELLOW:</span>
+            <span className="text-slate-600">Changed / Draft</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Confirmed successfully saved by backend">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 border border-emerald-600 inline-block shadow-xs" />
+            <span className="font-bold text-emerald-950">GREEN:</span>
+            <span className="text-slate-600">Successfully Saved</span>
+          </div>
+        </div>
       </div>
 
       {deadlinePassed && entryType !== 'attendance' && (
@@ -455,18 +477,76 @@ export const MarksTable: React.FC<MarksTableProps> = ({
                   if (attendancePct > 100) attendancePct = 100;
                 }
 
+                // Determine precise visual state:
+                // Blue: Saved in backend
+                // Yellow: Changed locally / Draft
+                // Green: Confirmed saved to backend
+                // Failed: Save failed (draft preserved)
+                const visualState: MarkVisualState = (() => {
+                  if (!studentUrn || !isFilled) return 'empty';
+
+                  const explicit = markVisualStates[studentUrn];
+                  if (explicit === 'failed') return 'failed';
+
+                  const savedVal = savedBackendMarks[studentUrn];
+                  const hasSaved = savedVal !== undefined && savedVal !== '';
+
+                  if (explicit === 'success') {
+                    if (hasSaved && currentVal !== savedVal) {
+                      return 'draft';
+                    }
+                    return 'success';
+                  }
+
+                  if (explicit === 'draft') {
+                    if (hasSaved && currentVal === savedVal) {
+                      return 'saved';
+                    }
+                    return 'draft';
+                  }
+
+                  if (hasSaved && currentVal === savedVal) {
+                    return 'saved';
+                  }
+
+                  return 'draft';
+                })();
+
+                // Row background styling
+                const rowClass = isNotOpted
+                  ? 'bg-slate-50/70 opacity-60'
+                  : visualState === 'failed'
+                  ? 'bg-rose-50/30 hover:bg-rose-50/50'
+                  : visualState === 'draft'
+                  ? 'bg-amber-50/30 hover:bg-amber-50/50'
+                  : visualState === 'success'
+                  ? 'bg-emerald-50/30 hover:bg-emerald-50/50'
+                  : visualState === 'saved'
+                  ? 'bg-blue-50/20 hover:bg-blue-50/40'
+                  : isAbsent
+                  ? 'bg-rose-50/40 hover:bg-rose-50/60'
+                  : 'hover:bg-slate-50/80';
+
+                // Input styling based on visual state
+                let inputVisualClass = '';
+                if (visualState === 'failed') {
+                  inputVisualClass = 'bg-amber-50 border-2 border-rose-500 text-rose-950 font-extrabold shadow-sm ring-2 ring-rose-200';
+                } else if (visualState === 'draft') {
+                  inputVisualClass = 'bg-amber-50 border-2 border-amber-400 text-amber-950 font-extrabold shadow-sm ring-2 ring-amber-200/50 focus:border-amber-600 focus:ring-amber-300';
+                } else if (visualState === 'success') {
+                  inputVisualClass = 'bg-emerald-50 border-2 border-emerald-500 text-emerald-950 font-extrabold shadow-sm ring-2 ring-emerald-200/50 focus:border-emerald-700 focus:ring-emerald-300';
+                } else if (visualState === 'saved') {
+                  inputVisualClass = 'bg-blue-50/70 border-2 border-blue-400 text-blue-950 font-extrabold shadow-sm ring-2 ring-blue-100 focus:border-blue-600 focus:ring-blue-200';
+                } else if (isAbsent) {
+                  inputVisualClass = 'bg-rose-100 border-rose-400 text-rose-800 font-extrabold shadow-inner';
+                } else {
+                  inputVisualClass = 'bg-white border-slate-300 text-slate-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20';
+                }
+
                 return (
                   <tr
                     key={studentUrn ? `urn-${studentUrn}` : `roll-${student.roll}-${index}`}
-                    className={`transition-colors ${
-                      isNotOpted
-                        ? 'bg-slate-50/70 opacity-60'
-                        : isAbsent
-                        ? 'bg-rose-50/50 hover:bg-rose-50'
-                        : isFilled
-                        ? 'bg-emerald-50/30 hover:bg-emerald-50/50'
-                        : 'hover:bg-slate-50/80'
-                    }`}
+                    className={`transition-colors ${rowClass}`}
                   >
                     {/* Roll No */}
                     <td className="py-3 px-4 text-center font-bold text-slate-800">
@@ -538,13 +618,7 @@ export const MarksTable: React.FC<MarksTableProps> = ({
                             readOnly={entryType === 'attendance' && !manualAttendanceMode}
                             onKeyDown={(e) => handleKeyDown(e, index)}
                             placeholder={entryType === 'attendance' ? (manualAttendanceMode ? `0-${maxAllowed}` : 'Present / Absent') : (isAbsent ? 'AB' : `0-${maxAllowed}`)}
-                            className={`w-28 px-3 py-2 text-center text-sm font-bold rounded-xl border transition-all ${
-                              isAbsent
-                                ? 'bg-rose-100 border-rose-400 text-rose-800 font-extrabold shadow-inner'
-                                : isFilled
-                                ? 'bg-emerald-100/70 border-emerald-500 text-emerald-900 font-extrabold shadow-sm'
-                                : 'bg-white border-slate-300 text-slate-800 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20'
-                            }`}
+                            className={`w-28 px-3 py-2 text-center text-sm rounded-xl border transition-all ${inputVisualClass}`}
                           />
                         </div>
                       )}
@@ -605,12 +679,18 @@ export const MarksTable: React.FC<MarksTableProps> = ({
                           onClick={() => toggleAbsent(student)}
                           className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
                             isAbsent
-                              ? 'bg-rose-600 text-white border-rose-700 shadow-sm'
+                              ? visualState === 'saved'
+                                ? 'bg-blue-600 text-white border-blue-700 shadow-sm'
+                                : visualState === 'draft'
+                                ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                                : visualState === 'success'
+                                ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                                : 'bg-rose-600 text-white border-rose-700 shadow-sm'
                               : 'bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border-slate-200'
                           }`}
                           title={isAbsent ? 'Click to remove Absent' : 'Click to mark Absent (AB)'}
                         >
-                          {isAbsent ? 'AB ✓' : 'AB'}
+                          {isAbsent ? (visualState === 'saved' ? 'AB (Saved)' : visualState === 'draft' ? 'AB (Draft)' : visualState === 'success' ? 'AB (Saved ✓)' : 'AB ✓') : 'AB'}
                         </button>
                       )}
                     </td>
@@ -619,17 +699,61 @@ export const MarksTable: React.FC<MarksTableProps> = ({
                     <td className="py-3 px-4 text-center">
                       {isNotOpted ? (
                         <span className="text-[11px] text-slate-400 font-medium">—</span>
-                      ) : (
+                      ) : entryType === 'attendance' ? (
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${
-                          markStatus === 'Pending' ? 'bg-slate-100 text-slate-500' :
-                          markStatus === 'Updated' ? 'bg-blue-100 text-blue-700' :
-                          markStatus === 'Sync Pending' ? 'bg-amber-100 text-amber-800' :
-                          markStatus === 'Cloud Synced' ? 'bg-emerald-100 text-emerald-800' :
-                          markStatus === 'Locked' ? 'bg-slate-200 text-slate-500' :
-                          'bg-emerald-100 text-emerald-700'
-                        }`} title={markStatus}>
-                          {entryType === 'attendance' ? (currentVal ? <CheckCircle2 className="w-3 h-3" /> : '—') : (markStatus === 'Pending' ? '—' : <CheckCircle2 className="w-3 h-3" />)}
-                          {entryType === 'attendance' ? attendanceStatusLabel : markStatus}
+                          currentVal ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {currentVal ? <CheckCircle2 className="w-3 h-3" /> : '—'}
+                          {attendanceStatusLabel}
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold border ${
+                            visualState === 'failed'
+                              ? 'bg-rose-100 text-rose-800 border-rose-300'
+                              : visualState === 'draft'
+                              ? 'bg-amber-100 text-amber-900 border-amber-300'
+                              : visualState === 'success'
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                              : visualState === 'saved'
+                              ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                              : 'bg-slate-100 text-slate-500 border-slate-200'
+                          }`}
+                          title={
+                            visualState === 'failed'
+                              ? 'Backend save failed. Draft preserved locally.'
+                              : visualState === 'draft'
+                              ? 'Changed locally — not yet saved to backend.'
+                              : visualState === 'success'
+                              ? 'Confirmed successfully saved to backend.'
+                              : visualState === 'saved'
+                              ? 'Saved in backend database.'
+                              : 'Pending entry'
+                          }
+                        >
+                          {visualState === 'failed' ? (
+                            <>
+                              <AlertCircle className="w-3 h-3 text-rose-600" />
+                              <span>Save Failed</span>
+                            </>
+                          ) : visualState === 'draft' ? (
+                            <>
+                              <Edit3 className="w-3 h-3 text-amber-700" />
+                              <span>Draft</span>
+                            </>
+                          ) : visualState === 'success' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                              <span>Saved ✓</span>
+                            </>
+                          ) : visualState === 'saved' ? (
+                            <>
+                              <Database className="w-3 h-3 text-blue-700" />
+                              <span>Saved</span>
+                            </>
+                          ) : (
+                            <span>Pending</span>
+                          )}
                         </span>
                       )}
                     </td>

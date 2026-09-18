@@ -62,7 +62,8 @@ export type ResultViewMode =
   | 'dashboard' 
   | 'admin_portal'
   | 'admit_card'
-  | 'student_management';
+  | 'student_management'
+  | 'marks_audit';
 
 export interface SystemControlConfig {
   marksEntryStatus: 'ON' | 'OFF';

@@ -14,6 +14,8 @@ import { exportReportCardToPdf } from '../../utils/pdfExport';
 import { Download, BarChart2, PenTool } from 'lucide-react';
 import { getStoredSignatures, SchoolSignatures } from '../../utils/signatureStorage';
 import { OfficialSignaturesModal } from './OfficialSignaturesModal';
+import { getStudentURN } from '../../utils/studentIdentity';
+import { getStudentPhotoUrl } from '../../utils/photoMapping';
 
 interface ReportCardProps {
   student: FullStudentExamRecord;
@@ -82,6 +84,10 @@ export const ReportCard: React.FC<ReportCardProps> = ({
   const activeSubjects = React.useMemo(() => {
     return getStudentSubjects(student, subjects);
   }, [student, subjects]);
+
+  const studentURN = getStudentURN(student);
+  const photoMapping = getStudentPhotoUrl(student);
+  const photoSrc = photoMapping.url;
 
   const summary = computeStudentSummary(student, activeSubjects, examMode, workingDaysHY, workingDaysAE);
 
@@ -287,28 +293,67 @@ export const ReportCard: React.FC<ReportCardProps> = ({
           </div>
         </div>
 
-        {/* 2. Student Information Box (Exact 4 fields from PDF) */}
+        {/* 2. Student Information Box */}
         <div className="border border-[#d1d5db] rounded-xs bg-white text-slate-800 p-1.5 px-3 mb-1.5 text-xs">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-0.5">
-            {/* Row 1 */}
-            <div className="flex items-center">
-              <span className="w-26 text-slate-600">Student Name:</span>
-              <span className="font-bold text-slate-900 uppercase">{student.name}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="w-20 text-slate-600">Roll No:</span>
-              <span className="font-bold text-slate-900">{formattedRoll}</span>
+          <div className="flex items-center justify-between gap-3">
+            {/* Student Particulars Grid */}
+            <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-0.5">
+              {/* Row 1 */}
+              <div className="flex items-center">
+                <span className="w-26 text-slate-600">Student Name:</span>
+                <span className="font-bold text-slate-900 uppercase">{student.name}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-24 text-slate-600">Roll No:</span>
+                <span className="font-bold text-slate-900">{formattedRoll}</span>
+              </div>
+
+              {/* Row 2 */}
+              <div className="flex items-center">
+                <span className="w-26 text-slate-600">Father's Name:</span>
+                <span className="font-bold text-slate-900 uppercase">{student.fatherName || 'N/A'}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-24 text-slate-600">Class &amp; Sec:</span>
+                <span className="font-bold text-slate-900">
+                  Class {student.studentClass}{student.section ? ` - ${student.section}` : ''}
+                </span>
+              </div>
+
+              {/* Row 3 */}
+              <div className="flex items-center">
+                <span className="w-26 text-slate-600">Mother's Name:</span>
+                <span className="font-bold text-slate-900 uppercase">{student.motherName || 'N/A'}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-24 text-slate-600">URN / Adm No:</span>
+                <span className="font-mono font-bold text-slate-900">{studentURN || student.admNo || 'N/A'}</span>
+              </div>
             </div>
 
-            {/* Row 2 */}
-            <div className="flex items-center">
-              <span className="w-26 text-slate-600">Father's Name:</span>
-              <span className="font-bold text-slate-900 uppercase">{student.fatherName || 'N/A'}</span>
-            </div>
-            <div className="flex items-center">
-              <span className="w-20 text-slate-600">Class:</span>
-              <span className="font-bold text-slate-900">{student.studentClass}</span>
-            </div>
+            {/* Student Photograph Frame (Rendered if available via authoritative URN/Drive mapping) */}
+            {photoSrc && (
+              <div className="shrink-0 pl-2 border-l border-slate-200">
+                <div className="w-[52px] h-[62px] border border-slate-300 rounded-xs overflow-hidden bg-slate-50 flex items-center justify-center shadow-2xs">
+                  <img 
+                    src={photoSrc} 
+                    alt={student.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src.includes('lh3.googleusercontent.com/d/')) {
+                        const id = target.src.split('/d/')[1];
+                        target.src = `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
+                      } else {
+                        target.style.display = 'none';
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -563,8 +608,8 @@ export const ReportCard: React.FC<ReportCardProps> = ({
           </div>
         )}
 
-        {/* 4. Overall Summary Box (3 Framed Rectangles side-by-side) */}
-        <div className="grid grid-cols-3 gap-2 mb-1.5">
+        {/* 4. Overall Summary Box (4 Framed Rectangles side-by-side) */}
+        <div className="grid grid-cols-4 gap-2 mb-1.5">
           {/* OVERALL % */}
           <div className="border border-[#4b5563] rounded-xs text-center bg-white py-1 px-1.5">
             <div className="font-semibold text-slate-500 uppercase tracking-wider text-[8.5px] leading-tight">
@@ -592,6 +637,18 @@ export const ReportCard: React.FC<ReportCardProps> = ({
             </div>
             <div className="font-bold text-slate-900 text-base sm:text-lg leading-tight mt-0.5">
               {isSinglePT ? 'N/A' : `${summary.attendancePercent}%`}
+            </div>
+          </div>
+
+          {/* RESULT STATUS */}
+          <div className="border border-[#4b5563] rounded-xs text-center bg-white py-1 px-1.5">
+            <div className="font-semibold text-slate-500 uppercase tracking-wider text-[8.5px] leading-tight">
+              RESULT
+            </div>
+            <div className={`font-extrabold text-sm sm:text-base leading-tight mt-0.5 ${
+              summary.resultStatus === 'PASS' ? 'text-[#1b4332]' : 'text-red-600'
+            }`}>
+              {summary.resultStatus}
             </div>
           </div>
         </div>

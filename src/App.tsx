@@ -14,7 +14,7 @@ import { SystemControlConfig, ClassSubjectAllotmentMap } from './types/resultTyp
 import { DEFAULT_STUDENTS_BY_CLASS, SUBJECTS_BY_CLASS } from './data/schoolConfig';
 import { Header } from './components/Header';
 import { ControlPanel, CLASS_OPTIONS } from './components/ControlPanel';
-import { MarksTable } from './components/MarksTable';
+import { MarksTable, MarkVisualState } from './components/MarksTable';
 import { PasswordModal } from './components/PasswordModal';
 import { SettingsModal } from './components/SettingsModal';
 import { GuideModal } from './components/GuideModal';
@@ -867,6 +867,8 @@ export default function App() {
     setSelectedSubject('');
     setStudents([]);
     setValues({});
+    setSavedBackendMarks({});
+    setMarkVisualStates({});
   };
 
   const handleSelectClass = (
@@ -877,6 +879,8 @@ export default function App() {
     setSelectedSubject('');
     setStudents([]);
     setValues({});
+    setSavedBackendMarks({});
+    setMarkVisualStates({});
   };
 
   const handleSelectSection = (
@@ -886,6 +890,8 @@ export default function App() {
     setSelectedSubject('');
     setStudents([]);
     setValues({});
+    setSavedBackendMarks({});
+    setMarkVisualStates({});
   };
 
   const handleSelectSubject = (
@@ -893,6 +899,8 @@ export default function App() {
   ) => {
     setSelectedSubject(newSubject);
     setValues({});
+    setSavedBackendMarks({});
+    setMarkVisualStates({});
   };
 
   // ------------------------------------------------------------
@@ -903,6 +911,12 @@ export default function App() {
 
   const [values, setValues] =
     useState<Record<string, string>>({});
+
+  const [savedBackendMarks, setSavedBackendMarks] =
+    useState<Record<string, string>>({});
+
+  const [markVisualStates, setMarkVisualStates] =
+    useState<Record<string, MarkVisualState>>({});
 
   const [, setMarkStatusRevision] = useState(0);
 
@@ -1236,6 +1250,13 @@ export default function App() {
                 );
 
               setValues(canonicalDraft);
+              const draftVisuals: Record<string, MarkVisualState> = {};
+              Object.keys(canonicalDraft).forEach(k => {
+                if (canonicalDraft[k]) {
+                  draftVisuals[k] = 'draft';
+                }
+              });
+              setMarkVisualStates(draftVisuals);
 
               showNotification(
                 'info' as any,
@@ -1273,6 +1294,14 @@ export default function App() {
           .length > 0
       ) {
         setValues(existingMarks);
+        setSavedBackendMarks(existingMarks);
+        const initialVisuals: Record<string, MarkVisualState> = {};
+        Object.keys(existingMarks).forEach(k => {
+          if (existingMarks[k]) {
+            initialVisuals[k] = 'saved';
+          }
+        });
+        setMarkVisualStates(initialVisuals);
 
         showNotification(
           'info' as any,
@@ -1280,6 +1309,8 @@ export default function App() {
         );
       } else {
         setValues({});
+        setSavedBackendMarks({});
+        setMarkVisualStates({});
       }
 
       setIsLoading(false);
@@ -1429,6 +1460,13 @@ export default function App() {
       ...prev,
       [identifier]: val
     }));
+
+    if (studentUrn) {
+      setMarkVisualStates(prev => ({
+        ...prev,
+        [studentUrn]: 'draft'
+      }));
+    }
 
     if (selectedClass && studentUrn) {
       if (entryType === 'attendance') {
@@ -1804,6 +1842,19 @@ export default function App() {
     }
     updateSubmittedMarkStatuses(recordsToSubmit, 'Sync Pending');
 
+    // Upon submission attempt, mark states as 'saved' (Blue / Sync Pending / Local session)
+    // Never mark green until cloud sync is confirmed!
+    setMarkVisualStates(prev => {
+      const next = { ...prev };
+      recordsToSubmit.forEach(r => {
+        const urn = getStudentURN(r);
+        if (urn) {
+          next[urn] = 'saved';
+        }
+      });
+      return next;
+    });
+
     if (draftKey) {
       localStorage.removeItem(
         draftKey
@@ -1853,6 +1904,27 @@ export default function App() {
         selectedClass,
         msg => {
           updateSubmittedMarkStatuses(recordsToSubmit, 'Cloud Synced');
+          // Cloud sync verified by Google Sheet callback: transition to 'success' (Green)
+          setMarkVisualStates(prev => {
+            const next = { ...prev };
+            recordsToSubmit.forEach(r => {
+              const urn = getStudentURN(r);
+              if (urn) {
+                next[urn] = 'success';
+              }
+            });
+            return next;
+          });
+          setSavedBackendMarks(prev => {
+            const next = { ...prev };
+            recordsToSubmit.forEach(r => {
+              const urn = getStudentURN(r);
+              if (urn) {
+                next[urn] = String(r.value);
+              }
+            });
+            return next;
+          });
           showNotification(
             'success',
             `✅ Google Sheet सिंक सफल: ${recordsToSubmit.length} प्रविष्टियां सुरक्षित!`
@@ -1860,6 +1932,17 @@ export default function App() {
         },
         err => {
           updateSubmittedMarkStatuses(recordsToSubmit, 'Sync Pending');
+          // Failed save must NOT become GREEN: flag as failed while preserving draft
+          setMarkVisualStates(prev => {
+            const next = { ...prev };
+            recordsToSubmit.forEach(r => {
+              const urn = getStudentURN(r);
+              if (urn) {
+                next[urn] = 'failed';
+              }
+            });
+            return next;
+          });
           showNotification(
             'warning',
             `⚠️ ऑफ़लाइन सुरक्षित (0.01s)। Google Sheet सिंक: ${err}`
@@ -2625,10 +2708,12 @@ export default function App() {
             attendanceDate={attendanceDate}
             manualAttendanceMode={manualAttendanceMode}
             values={values}
-              marksEntryDeadline={systemConfig.marksEntryDeadline}
-              teacherId={selectedTeacherId}
-              approvedCorrections={approvedCorrections}
-              onCorrectionRequest={handleCorrectionRequest}
+            savedBackendMarks={savedBackendMarks}
+            markVisualStates={markVisualStates}
+            marksEntryDeadline={systemConfig.marksEntryDeadline}
+            teacherId={selectedTeacherId}
+            approvedCorrections={approvedCorrections}
+            onCorrectionRequest={handleCorrectionRequest}
             markStatuses={markStatuses}
             onValueChange={
               handleValueChange
@@ -2647,9 +2732,6 @@ export default function App() {
             }
             isSubmitting={
               isSubmitting
-            }
-            onExportCsv={
-              handleExportCsv
             }
           />
         )}

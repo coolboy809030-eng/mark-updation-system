@@ -326,52 +326,28 @@ export function getStudentEvaluationCurriculum(
   }
 
   const explicitOpted = detectStudentOptionalSubject(student).toLowerCase().trim();
-  const hasUrdu = classCurriculum.some(s => s.toLowerCase() === 'urdu' || s.toLowerCase().includes('urdu'));
-  const hasSanskrit = classCurriculum.some(s => s.toLowerCase() === 'sanskrit' || s.toLowerCase().includes('sanskrit'));
 
-  // If the curriculum does NOT have both Urdu and Sanskrit, there is no elective conflict to filter
-  if (!(hasUrdu && hasSanskrit)) {
-    // Return all class curriculum subjects, preserving order
-    return {
-      subjects: [...classCurriculum],
-      warnings
-    };
-  }
+  // Curriculum elective filtering:
+  // Optional Urdu/Sanskrit must ONLY appear when explicitly assigned in the student's authoritative data
+  let roster = classCurriculum.filter(s => {
+    const lower = s.toLowerCase();
+    const isSubUrdu = lower === 'urdu' || lower.includes('urdu');
+    const isSubSanskrit = lower === 'sanskrit' || lower.includes('sanskrit');
 
-  // Curriculum offers both Urdu and Sanskrit as alternative electives
-  let roster: string[] = [];
-
-  if (explicitOpted === 'urdu') {
-    // Include Urdu, exclude Sanskrit
-    roster = classCurriculum.filter(s => s.toLowerCase() !== 'sanskrit' && !s.toLowerCase().includes('sanskrit'));
-  } else if (explicitOpted === 'sanskrit') {
-    // Include Sanskrit, exclude Urdu
-    roster = classCurriculum.filter(s => s.toLowerCase() !== 'urdu' && !s.toLowerCase().includes('urdu'));
-  } else if (explicitOpted) {
-    // Opted for an elective other than Urdu or Sanskrit
-    const matched = findSubjectInCurriculum(explicitOpted, classCurriculum);
-    if (matched) {
-      roster = classCurriculum.filter(s => {
-        const lower = s.toLowerCase();
-        return lower !== 'urdu' && lower !== 'sanskrit';
-      });
-      if (!roster.includes(matched)) {
-        roster.push(matched);
-      }
-    } else {
-      // Invalid optional subject: do NOT add it to roster, keep core subjects without elective languages
-      roster = classCurriculum.filter(s => {
-        const lower = s.toLowerCase();
-        return lower !== 'urdu' && lower !== 'sanskrit';
-      });
+    if (isSubUrdu) {
+      return explicitOpted === 'urdu';
     }
-  } else {
-    // No explicit optional subject: DO NOT GUESS!
-    // Keep core compulsory subjects
-    roster = classCurriculum.filter(s => {
-      const lower = s.toLowerCase();
-      return lower !== 'urdu' && lower !== 'sanskrit';
-    });
+    if (isSubSanskrit) {
+      return explicitOpted === 'sanskrit';
+    }
+    return true;
+  });
+
+  if (explicitOpted && explicitOpted !== 'urdu' && explicitOpted !== 'sanskrit') {
+    const matched = findSubjectInCurriculum(explicitOpted, classCurriculum);
+    if (matched && !roster.includes(matched)) {
+      roster.push(matched);
+    }
   }
 
   return {
