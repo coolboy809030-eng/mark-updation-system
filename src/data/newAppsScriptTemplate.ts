@@ -1,31 +1,84 @@
 /**
+ * Generates the complete, production-ready Google Apps Script backend code (v2.0)
+ * designed specifically for the current Academic Hero system.
+ */
+export function getCompleteAppsScript(classConfigs?: Array<{ className: string; subjects: string[] }>): string {
+  const configJson = classConfigs ? JSON.stringify(classConfigs, null, 2) : `[
+  {
+    "className": "Class_Nursery",
+    "subjects": ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_LKG",
+    "subjects": ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_UKG",
+    "subjects": ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Table Book", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_1",
+    "subjects": ["Computer", "English", "Environmental Studies", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_2",
+    "subjects": ["Computer", "English", "Environmental Studies", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_3",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_4",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_5",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_6",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_7",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_8",
+    "subjects": ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_9",
+    "subjects": ["English", "Hindi", "Mathematics", "Science", "Social Science", "Sanskrit", "Urdu"]
+  },
+  {
+    "className": "Class_10",
+    "subjects": ["English", "Hindi", "Mathematics", "Science", "Social Science", "Sanskrit", "Urdu"]
+  }
+]`;
+
+  return `/**
  * Peace International School - Complete Master Google Apps Script Backend (v2.0)
  * 
- * DESIGNED SPECIFICALLY FOR THE CURRENT ACADEMIC HERO ARCHITECTURE:
- * - Authoritative URN-first student identification (Never infers identity from Name or Roll No)
- * - Exact canonical curriculum for all 13 classes (Nursery to Class 10)
+ * FEATURES:
+ * - Authoritative URN lookup (Column C / Admission No)
+ * - 13 Class tabs (Class_Nursery to Class_10)
  * - Half-Yearly (PT-1, PT-2, HY-WRT) and Annual (PT-3, PT-4, AE-WRT) assessment segments
- * - Central _TEACHERS registry with role-based validation & active status check
- * - Central _SYSTEM_CONFIG for global marks entry window & submission deadline enforcement
- * - Central _AUDIT_LOGS with non-fabricating event tracking
- * - Safe, non-destructive setup function: setupPeaceSchoolMasterWorkbook() / createPeaceSchoolWorkbook()
+ * - Central _TEACHERS registry with active status and allotment validation
+ * - Central _SYSTEM_CONFIG for lock status and submission deadlines
+ * - Central _AUDIT_LOGS for real-time mutation logging
+ * - Non-destructive setupPeaceSchoolMasterWorkbook()
  * 
- * SETUP INSTRUCTIONS:
- * 1. Open your Google Sheet -> Click 'Extensions' > 'Apps Script'.
- * 2. Delete any previous script, paste this ENTIRE file, and click 'Save' (Ctrl+S).
- * 3. Select 'setupPeaceSchoolMasterWorkbook' in the toolbar dropdown and click 'Run' once.
- *    (Review and grant the required permissions when prompted).
- * 4. Click 'Deploy' > 'New deployment'.
- *    - Type: 'Web app'
- *    - Description: 'Academic Hero Production API v2'
- *    - Execute as: 'Me' (your Google account)
+ * SETUP STEPS:
+ * 1. Open Google Sheet > Extensions > Apps Script.
+ * 2. Delete existing code, paste this entire script and save (Ctrl+S).
+ * 3. Select 'setupPeaceSchoolMasterWorkbook' from dropdown and click 'Run' once.
+ * 4. Click 'Deploy' > 'New deployment' > Web app.
+ *    - Execute as: 'Me'
  *    - Who has access: 'Anyone'
- * 5. Copy the Web App URL and paste it into the Academic Hero app settings!
+ * 5. Copy the Web App URL and paste it into Academic Hero Settings!
  */
-
-// ==========================================
-// 1. MASTER SCHOOL CONFIGURATION
-// ==========================================
 
 var SCHOOL_METADATA = {
   name: "Peace International School",
@@ -34,83 +87,13 @@ var SCHOOL_METADATA = {
   version: "2.0.0"
 };
 
-var SCHOOL_CONFIG = [
-  {
-    className: "Class_Nursery",
-    subjects: ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_LKG",
-    subjects: ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_UKG",
-    subjects: ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Table Book", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_1",
-    subjects: ["Computer", "English", "Environmental Studies", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_2",
-    subjects: ["Computer", "English", "Environmental Studies", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_3",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_4",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_5",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_6",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_7",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_8",
-    subjects: ["Computer", "English", "Gk", "Hindi", "Mathematics", "Science", "Social Studies", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_9",
-    subjects: ["English", "Hindi", "Mathematics", "Science", "Social Science", "Sanskrit", "Urdu"]
-  },
-  {
-    className: "Class_10",
-    subjects: ["English", "Hindi", "Mathematics", "Science", "Social Science", "Sanskrit", "Urdu"]
-  }
-];
+var SCHOOL_CONFIG = ${configJson};
 
 var BASE_PROFILE_HEADERS = [
   "S.No", "Roll No", "Admission No", "Student Name", "Father Name", "Mother Name",
   "DOB", "Gender", "Category", "Mobile No", "Optional Subject", "Photo URL"
 ];
 
-var ASSESSMENT_SEGMENTS = [
-  "PT-1",
-  "PT-2",
-  "-HY-WRT",
-  "PT-3",
-  "PT-4",
-  "-AE-WRT"
-];
-
-// ==========================================
-// 2. NON-DESTRUCTIVE WORKBOOK SETUP FUNCTION
-// ==========================================
-
-/**
- * Initializes or updates all 13 class tabs, _TEACHERS, _SYSTEM_CONFIG, and _AUDIT_LOGS.
- * Fully NON-DESTRUCTIVE: Preserves existing student and marks data rows!
- */
 function createPeaceSchoolWorkbook() {
   setupPeaceSchoolMasterWorkbook();
 }
@@ -118,17 +101,13 @@ function createPeaceSchoolWorkbook() {
 function setupPeaceSchoolMasterWorkbook() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. Setup all 13 Class Sheets
   SCHOOL_CONFIG.forEach(function(item) {
     var sheetName = item.className;
     var sheet = ss.getSheetByName(sheetName);
-    var isNew = false;
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
-      isNew = true;
     }
 
-    // Build canonical headers
     var headers = BASE_PROFILE_HEADERS.slice();
     item.subjects.forEach(function(sub) {
       headers.push(sub + " PT-1");
@@ -140,13 +119,11 @@ function setupPeaceSchoolMasterWorkbook() {
     });
     headers.push("Attendance-HY", "Attendance-AE");
 
-    // Write or update row 1 headers
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-
-    // Format Header Row
     sheet.setRowHeight(1, 38);
+
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
-    headerRange.setBackground("#1B4D3E"); // Forest Green
+    headerRange.setBackground("#1B4D3E");
     headerRange.setFontColor("#FFFFFF");
     headerRange.setFontWeight("bold");
     headerRange.setFontSize(10);
@@ -155,26 +132,21 @@ function setupPeaceSchoolMasterWorkbook() {
     headerRange.setWrap(true);
     headerRange.setBorder(true, true, true, true, true, true, "#103328", SpreadsheetApp.BorderStyle.SOLID);
 
-    // Format body alignment if sheet has rows
     var maxRows = Math.max(sheet.getMaxRows(), 50);
     var fullRange = sheet.getRange(1, 1, maxRows, headers.length);
     fullRange.setVerticalAlignment("middle");
 
-    // Default center alignment for all data columns
     if (maxRows > 1) {
       sheet.getRange(2, 1, maxRows - 1, headers.length).setHorizontalAlignment("center");
-      // Keep Name, Father Name, Mother Name left-aligned for data rows
       sheet.getRange(2, 4, maxRows - 1, 3).setHorizontalAlignment("left");
     }
 
-    // Freeze panes: Header row (1) and Identification columns (4: S.No, Roll, Admission No, Student Name)
     sheet.setFrozenRows(1);
     sheet.setFrozenColumns(4);
 
-    // Set readable column widths
     sheet.setColumnWidth(1, 55);   // S.No
     sheet.setColumnWidth(2, 70);   // Roll No
-    sheet.setColumnWidth(3, 150);  // Admission No (Authoritative URN)
+    sheet.setColumnWidth(3, 150);  // Admission No (URN)
     sheet.setColumnWidth(4, 190);  // Student Name
     sheet.setColumnWidth(5, 180);  // Father Name
     sheet.setColumnWidth(6, 180);  // Mother Name
@@ -185,24 +157,19 @@ function setupPeaceSchoolMasterWorkbook() {
     sheet.setColumnWidth(11, 135); // Optional Subject
     sheet.setColumnWidth(12, 120); // Photo URL
     for (var c = 13; c <= headers.length; c++) {
-      sheet.setColumnWidth(c, 115); // Assessment and attendance columns
+      sheet.setColumnWidth(c, 115);
     }
   });
 
-  // 2. Setup Central _TEACHERS Registry Tab
   setupTeachersSheet(ss);
-
-  // 3. Setup Central _SYSTEM_CONFIG Tab
   setupSystemConfigSheet(ss);
-
-  // 4. Setup Central _AUDIT_LOGS Tab
   setupAuditLogsSheet(ss);
 
-  var msg = "Peace International School Master Workbook v2 is successfully configured!\n\n" +
-            "✓ 13 Class sheets configured with authoritative URN columns\n" +
-            "✓ Central _TEACHERS registry tab active\n" +
-            "✓ Central _SYSTEM_CONFIG tab active\n" +
-            "✓ Central _AUDIT_LOGS tab active\n" +
+  var msg = "Peace International School Master Workbook v2 is successfully configured!\\n\\n" +
+            "✓ 13 Class sheets configured with authoritative URN columns\\n" +
+            "✓ Central _TEACHERS registry tab active\\n" +
+            "✓ Central _SYSTEM_CONFIG tab active\\n" +
+            "✓ Central _AUDIT_LOGS tab active\\n" +
             "✓ Preserved all existing student and marks data rows safely.";
   
   try {
@@ -212,26 +179,15 @@ function setupPeaceSchoolMasterWorkbook() {
   }
 }
 
-/**
- * Ensures _TEACHERS tab exists with canonical headers and formatting
- */
 function setupTeachersSheet(ss) {
   var sheet = ss.getSheetByName("_TEACHERS");
-  var isNew = false;
   if (!sheet) {
     sheet = ss.insertSheet("_TEACHERS");
-    isNew = true;
   }
 
   var headers = [
-    "Teacher ID",
-    "Teacher Name",
-    "Contact / Mobile",
-    "Status",
-    "Classes",
-    "Sections",
-    "Subjects",
-    "Last Updated"
+    "Teacher ID", "Teacher Name", "Contact / Mobile", "Status",
+    "Classes", "Sections", "Subjects", "Last Updated"
   ];
 
   var currentData = sheet.getDataRange().getValues();
@@ -241,7 +197,7 @@ function setupTeachersSheet(ss) {
 
   sheet.setRowHeight(1, 38);
   var headerRange = sheet.getRange(1, 1, 1, headers.length);
-  headerRange.setBackground("#1E293B"); // Dark Slate
+  headerRange.setBackground("#1E293B");
   headerRange.setFontColor("#FFFFFF");
   headerRange.setFontWeight("bold");
   headerRange.setFontSize(10);
@@ -249,27 +205,22 @@ function setupTeachersSheet(ss) {
   headerRange.setVerticalAlignment("middle");
   sheet.setFrozenRows(1);
 
-  sheet.setColumnWidth(1, 130); // Teacher ID
-  sheet.setColumnWidth(2, 190); // Teacher Name
-  sheet.setColumnWidth(3, 140); // Contact
-  sheet.setColumnWidth(4, 95);  // Status
-  sheet.setColumnWidth(5, 180); // Classes
-  sheet.setColumnWidth(6, 110); // Sections
-  sheet.setColumnWidth(7, 280); // Subjects
-  sheet.setColumnWidth(8, 170); // Last Updated
+  sheet.setColumnWidth(1, 130);
+  sheet.setColumnWidth(2, 190);
+  sheet.setColumnWidth(3, 140);
+  sheet.setColumnWidth(4, 95);
+  sheet.setColumnWidth(5, 180);
+  sheet.setColumnWidth(6, 110);
+  sheet.setColumnWidth(7, 280);
+  sheet.setColumnWidth(8, 170);
 
   return sheet;
 }
 
-/**
- * Ensures _SYSTEM_CONFIG tab exists with default entries
- */
 function setupSystemConfigSheet(ss) {
   var sheet = ss.getSheetByName("_SYSTEM_CONFIG");
-  var isNew = false;
   if (!sheet) {
     sheet = ss.insertSheet("_SYSTEM_CONFIG");
-    isNew = true;
   }
 
   var headers = ["Key", "Value", "Description", "Last Updated"];
@@ -281,7 +232,7 @@ function setupSystemConfigSheet(ss) {
 
   sheet.setRowHeight(1, 38);
   var headerRange = sheet.getRange(1, 1, 1, headers.length);
-  headerRange.setBackground("#1E3A8A"); // Deep Navy
+  headerRange.setBackground("#1E3A8A");
   headerRange.setFontColor("#FFFFFF");
   headerRange.setFontWeight("bold");
   headerRange.setFontSize(10);
@@ -289,12 +240,11 @@ function setupSystemConfigSheet(ss) {
   headerRange.setVerticalAlignment("middle");
   sheet.setFrozenRows(1);
 
-  sheet.setColumnWidth(1, 200); // Key
-  sheet.setColumnWidth(2, 200); // Value
-  sheet.setColumnWidth(3, 380); // Description
-  sheet.setColumnWidth(4, 170); // Last Updated
+  sheet.setColumnWidth(1, 200);
+  sheet.setColumnWidth(2, 200);
+  sheet.setColumnWidth(3, 380);
+  sheet.setColumnWidth(4, 170);
 
-  // Populate default configs if table is empty
   var updatedData = sheet.getDataRange().getValues();
   if (updatedData.length <= 1) {
     var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "GMT+5:30", "yyyy-MM-dd HH:mm");
@@ -313,27 +263,15 @@ function setupSystemConfigSheet(ss) {
   return sheet;
 }
 
-/**
- * Ensures _AUDIT_LOGS tab exists with canonical headers
- */
 function setupAuditLogsSheet(ss) {
   var sheet = ss.getSheetByName("_AUDIT_LOGS");
-  var isNew = false;
   if (!sheet) {
     sheet = ss.insertSheet("_AUDIT_LOGS");
-    isNew = true;
   }
 
   var headers = [
-    "Timestamp",
-    "Actor",
-    "Teacher ID",
-    "Action",
-    "Class",
-    "Subject / Type",
-    "Record Count",
-    "Status",
-    "Message"
+    "Timestamp", "Actor", "Teacher ID", "Action", "Class",
+    "Subject / Type", "Record Count", "Status", "Message"
   ];
 
   var currentData = sheet.getDataRange().getValues();
@@ -343,7 +281,7 @@ function setupAuditLogsSheet(ss) {
 
   sheet.setRowHeight(1, 38);
   var headerRange = sheet.getRange(1, 1, 1, headers.length);
-  headerRange.setBackground("#374151"); // Cool Charcoal
+  headerRange.setBackground("#374151");
   headerRange.setFontColor("#FFFFFF");
   headerRange.setFontWeight("bold");
   headerRange.setFontSize(10);
@@ -351,22 +289,18 @@ function setupAuditLogsSheet(ss) {
   headerRange.setVerticalAlignment("middle");
   sheet.setFrozenRows(1);
 
-  sheet.setColumnWidth(1, 170); // Timestamp
-  sheet.setColumnWidth(2, 160); // Actor
-  sheet.setColumnWidth(3, 120); // Teacher ID
-  sheet.setColumnWidth(4, 180); // Action
-  sheet.setColumnWidth(5, 120); // Class
-  sheet.setColumnWidth(6, 180); // Subject / Type
-  sheet.setColumnWidth(7, 110); // Record Count
-  sheet.setColumnWidth(8, 110); // Status
-  sheet.setColumnWidth(9, 360); // Message
+  sheet.setColumnWidth(1, 170);
+  sheet.setColumnWidth(2, 160);
+  sheet.setColumnWidth(3, 120);
+  sheet.setColumnWidth(4, 180);
+  sheet.setColumnWidth(5, 120);
+  sheet.setColumnWidth(6, 180);
+  sheet.setColumnWidth(7, 110);
+  sheet.setColumnWidth(8, 110);
+  sheet.setColumnWidth(9, 360);
 
   return sheet;
 }
-
-// ==========================================
-// 3. HTTP GET HANDLER
-// ==========================================
 
 function doGet(e) {
   try {
@@ -418,10 +352,6 @@ function doGet(e) {
   }
 }
 
-// ==========================================
-// 4. HTTP POST HANDLER
-// ==========================================
-
 function doPost(e) {
   try {
     var rawText = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
@@ -438,7 +368,6 @@ function doPost(e) {
 
     var action = payload.action || "";
 
-    // 1. Array of records directly or marks_submit action
     if (payload.records !== undefined || action === "marks_submit" || action === "attendance_submit") {
       var records = payload.records || [];
       if (!Array.isArray(records) || records.length === 0) {
@@ -451,27 +380,22 @@ function doPost(e) {
       return handleSaveMarks(records, payload);
     }
 
-    // 2. Update Student Demographics
     if (action === "updateStudentDetails") {
       return handleUpdateStudentDetails(payload);
     }
 
-    // 3. Delete Student by Authoritative URN
     if (action === "deleteStudent") {
       return handleDeleteStudent(payload);
     }
 
-    // 4. Save Teachers & Allotments
     if (action === "saveTeachers") {
       return handleSaveTeachers(payload);
     }
 
-    // 5. Update System Control Configuration
     if (action === "updateSystemControl" || action === "saveSystemControl") {
       return handleUpdateSystemControl(payload);
     }
 
-    // 6. Clear Marks/Attendance Sheet Data
     if (action === "clearSheetData") {
       return handleClearSheetData(payload);
     }
@@ -490,13 +414,6 @@ function doPost(e) {
   }
 }
 
-// ==========================================
-// 5. CORE BUSINESS HANDLERS
-// ==========================================
-
-/**
- * Returns System Control Configuration
- */
 function handleGetSystemControl() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("_SYSTEM_CONFIG");
@@ -538,9 +455,6 @@ function handleGetSystemControl() {
   return jsonResponse(config);
 }
 
-/**
- * Updates System Control Configuration
- */
 function handleUpdateSystemControl(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("_SYSTEM_CONFIG") || setupSystemConfigSheet(ss);
@@ -565,7 +479,6 @@ function handleUpdateSystemControl(payload) {
     }
   }
 
-  // Insert any remaining keys
   for (var k in keysToUpdate) {
     sheet.appendRow([k, keysToUpdate[k], "System Configuration Property", nowStr]);
   }
@@ -579,9 +492,6 @@ function handleUpdateSystemControl(payload) {
   });
 }
 
-/**
- * Returns Teacher Accounts and Allotments from _TEACHERS
- */
 function handleGetTeachers() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("_TEACHERS") || setupTeachersSheet(ss);
@@ -663,9 +573,6 @@ function handleGetTeachers() {
   });
 }
 
-/**
- * Saves Teacher Registry into _TEACHERS
- */
 function handleSaveTeachers(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("_TEACHERS") || setupTeachersSheet(ss);
@@ -673,7 +580,6 @@ function handleSaveTeachers(payload) {
   var accounts = payload.accounts || [];
   var allotments = payload.allotments || [];
 
-  // Clear existing data rows (keep header row 1)
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
@@ -730,8 +636,8 @@ function handleSaveTeachers(payload) {
   if (rowsToWrite.length > 0) {
     sheet.getRange(2, 1, rowsToWrite.length, 8).setValues(rowsToWrite);
     sheet.getRange(2, 1, rowsToWrite.length, 8).setHorizontalAlignment("center");
-    sheet.getRange(2, 2, rowsToWrite.length, 1).setHorizontalAlignment("left"); // Name
-    sheet.getRange(2, 7, rowsToWrite.length, 1).setHorizontalAlignment("left"); // Subjects
+    sheet.getRange(2, 2, rowsToWrite.length, 1).setHorizontalAlignment("left");
+    sheet.getRange(2, 7, rowsToWrite.length, 1).setHorizontalAlignment("left");
   }
 
   logAuditEvent("Admin", "ADMIN", "SAVE_TEACHERS", "ALL", "TEACHERS", rowsToWrite.length, "SUCCESS", "Synchronized " + rowsToWrite.length + " teachers to _TEACHERS tab.");
@@ -744,9 +650,6 @@ function handleSaveTeachers(payload) {
   });
 }
 
-/**
- * Returns basic student list for Mark Updation app (resolved by URN)
- */
 function handleGetStudents(targetClass) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = getTargetSheet(ss, targetClass);
@@ -770,7 +673,7 @@ function handleGetStudents(targetClass) {
 
   var headers = data[0].map(function(h) { return String(h).trim(); });
   var urnCol = findColumnIndex(headers, ["admission no", "urn", "adm no", "admission number", "student urn"]);
-  if (urnCol === -1) urnCol = 2; // Column C fallback
+  if (urnCol === -1) urnCol = 2;
 
   var students = [];
 
@@ -782,7 +685,6 @@ function handleGetStudents(targetClass) {
 
     var urn = normalizeUrn(row[urnCol]);
     if (!urn) {
-      // Fallback synthetic URN if missing in sheet row
       urn = "PIS-2025-" + normalizeClassName(targetClass).replace("Class_", "").toUpperCase() + "-" + ("00" + (roll || r)).slice(-3);
     }
 
@@ -810,9 +712,6 @@ function handleGetStudents(targetClass) {
   });
 }
 
-/**
- * Returns complete student examination records with all marks and attendance
- */
 function handleGetFullResults(targetClass) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = getTargetSheet(ss, targetClass);
@@ -836,7 +735,7 @@ function handleGetFullResults(targetClass) {
 
   var headers = data[0].map(function(h) { return String(h).trim(); });
   var urnCol = findColumnIndex(headers, ["admission no", "urn", "adm no", "admission number", "student urn"]);
-  if (urnCol === -1) urnCol = 2; // Column C fallback
+  if (urnCol === -1) urnCol = 2;
 
   var students = [];
 
@@ -863,8 +762,7 @@ function handleGetFullResults(targetClass) {
       } else if (header === "Attendance-AE") {
         attAE = (val !== undefined && val !== null && val !== "") ? String(val) : "";
       } else if (val !== undefined && val !== null && val !== "") {
-        // Store both formatted underscore key and verbatim header for maximum frontend compatibility
-        var key = header.replace(/\s+/g, "_").replace(/-/g, "_");
+        var key = header.replace(/\\s+/g, "_").replace(/-/g, "_");
         rawMarks[key] = val;
         rawMarks[header] = val;
       }
@@ -899,14 +797,9 @@ function handleGetFullResults(targetClass) {
   });
 }
 
-/**
- * Saves Marks or Attendance Entries into target cells
- * Enforces Authoritative URN lookup & Server-Side Security Rules
- */
 function handleSaveMarks(records, fullPayload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. Check Server-Side Security & Authorization
   var context = fullPayload.context || {};
   var actor = context.actor || fullPayload.actor || "Teacher";
   var role = (context.role || fullPayload.role || "teacher").toLowerCase();
@@ -922,7 +815,6 @@ function handleSaveMarks(records, fullPayload) {
     });
   }
 
-  // 2. Group records by target class sheet
   var recordsByClass = {};
   for (var i = 0; i < records.length; i++) {
     var rec = records[i];
@@ -950,14 +842,13 @@ function handleSaveMarks(records, fullPayload) {
 
     var headers = data[0].map(function(h) { return String(h).trim(); });
     var urnCol = findColumnIndex(headers, ["admission no", "urn", "adm no", "admission number", "student urn"]);
-    if (urnCol === -1) urnCol = 2; // Column C fallback
+    if (urnCol === -1) urnCol = 2;
 
-    // Build URN -> Row index mapping
     var urnToRow = {};
     for (var r = 1; r < data.length; r++) {
       var rowUrn = normalizeUrn(data[r][urnCol]);
       if (rowUrn) {
-        urnToRow[rowUrn] = r + 1; // 1-indexed row in SpreadsheetApp
+        urnToRow[rowUrn] = r + 1;
       }
     }
 
@@ -967,7 +858,6 @@ function handleSaveMarks(records, fullPayload) {
       var targetUrn = normalizeUrn(item.urn || item.admNo || item["Admission No"] || item["Admission Number"] || item.URN);
 
       if (!targetUrn) {
-        // Strict: Reject if URN missing
         errors.push("Missing authoritative URN in record " + (j + 1));
         continue;
       }
@@ -978,7 +868,6 @@ function handleSaveMarks(records, fullPayload) {
         continue;
       }
 
-      // Locate column
       var targetCol = -1;
       var isAttendance = (item.segment === "Attendance" || item.type === "Attendance" || String(item.type || "").toLowerCase() === "attendance");
 
@@ -997,7 +886,6 @@ function handleSaveMarks(records, fullPayload) {
         continue;
       }
 
-      // Write cell value
       sheet.getRange(targetRow, targetCol + 1).setValue(item.value !== undefined ? item.value : "");
       updatedCount++;
     }
@@ -1016,9 +904,6 @@ function handleSaveMarks(records, fullPayload) {
   });
 }
 
-/**
- * Updates Student Profile Demographics by Authoritative URN
- */
 function handleUpdateStudentDetails(payload) {
   var student = payload.student || payload;
   var className = payload.class || payload.className || student.class || "10";
@@ -1071,9 +956,6 @@ function handleUpdateStudentDetails(payload) {
   });
 }
 
-/**
- * Deletes Student Record by Authoritative URN
- */
 function handleDeleteStudent(payload) {
   var className = payload.class || payload.className || "10";
   var urn = normalizeUrn(payload.urn || payload.admNo || payload.studentUrn);
@@ -1117,9 +999,6 @@ function handleDeleteStudent(payload) {
   });
 }
 
-/**
- * Clears marks and attendance for a class (retains student profile demographics)
- */
 function handleClearSheetData(payload) {
   var className = normalizeClassName(payload.class || "10");
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1149,20 +1028,11 @@ function handleClearSheetData(payload) {
   });
 }
 
-// ==========================================
-// 6. SECURITY & AUTHORIZATION VERIFICATION
-// ==========================================
-
-/**
- * Verifies marks entry permission against _SYSTEM_CONFIG and _TEACHERS registry
- */
 function verifyServerAuthorization(ss, role, teacherId, records) {
-  // Admins are exempt from deadline and teacher locks
   if (role === "admin") {
     return { authorized: true };
   }
 
-  // 1. Check System Control Config
   var configSheet = ss.getSheetByName("_SYSTEM_CONFIG");
   if (configSheet) {
     var cfgData = configSheet.getDataRange().getValues();
@@ -1194,7 +1064,6 @@ function verifyServerAuthorization(ss, role, teacherId, records) {
     }
   }
 
-  // 2. Check Teacher Registry if Teacher ID is provided
   if (teacherId) {
     var teacherSheet = ss.getSheetByName("_TEACHERS");
     if (teacherSheet) {
@@ -1226,13 +1095,6 @@ function verifyServerAuthorization(ss, role, teacherId, records) {
   return { authorized: true };
 }
 
-// ==========================================
-// 7. AUDIT LOGGING HELPER
-// ==========================================
-
-/**
- * Appends a real-time event record into _AUDIT_LOGS
- */
 function logAuditEvent(actor, teacherId, action, targetClass, subjectOrType, recordCount, status, message) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1254,10 +1116,6 @@ function logAuditEvent(actor, teacherId, action, targetClass, subjectOrType, rec
     Logger.log("Audit log failed: " + err.toString());
   }
 }
-
-// ==========================================
-// 8. COLUMN & SHEET UTILITY HELPERS
-// ==========================================
 
 function normalizeUrn(value) {
   if (value === null || value === undefined) return "";
@@ -1337,7 +1195,6 @@ function resolveSubjectColumn(headers, subject, segment) {
     segVariants.push(" " + segment, "-" + segment);
   }
 
-  // Generate combinations
   var candidateKeys = [];
   subAliases.forEach(function(alias) {
     segVariants.forEach(function(seg) {
@@ -1365,4 +1222,6 @@ function resolveSubjectColumn(headers, subject, segment) {
 function jsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+`;
 }

@@ -96,10 +96,11 @@ export async function saveTeacherRegistryToGAS(
   const scriptUrl = getEffectiveGasUrl(providedUrl);
 
   try {
+    // Note: Google Apps Script Web Apps require text/plain to avoid CORS OPTIONS preflight failures in browsers
     const response = await fetch(scriptUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain;charset=utf-8'
       },
       body: JSON.stringify({
         action: 'saveTeachers',
@@ -110,7 +111,7 @@ export async function saveTeacherRegistryToGAS(
     });
 
     const data = await response.json();
-    if (data && data.status === 'success') {
+    if (data && (data.status === 'success' || data.success)) {
       return {
         success: true,
         message: data.message || 'Saved successfully to Google Sheet (_TEACHERS) registry.'

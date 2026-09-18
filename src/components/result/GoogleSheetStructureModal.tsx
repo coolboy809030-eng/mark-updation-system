@@ -24,6 +24,7 @@ import { ClassLevel } from '../../types';
 import { SUBJECTS_BY_CLASS, DEFAULT_STUDENTS_BY_CLASS } from '../../data/schoolConfig';
 import { ClassSubjectAllotmentMap } from '../../types/resultTypes';
 import { formatDisplayDate } from '../../utils/dateFormatter';
+import { getCompleteAppsScript } from '../../data/newAppsScriptTemplate';
 
 const ALL_CLASSES: ClassLevel[] = [
   'Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'
@@ -269,13 +270,55 @@ export const GoogleSheetStructureModal: React.FC<GoogleSheetStructureModalProps>
         XLSX.utils.book_append_sheet(wb, ws, `Class_${cls}`);
       });
 
-      XLSX.writeFile(wb, 'Peace_International_School_Complete_Master_Workbook.xlsx');
+      // Tab 14: _TEACHERS Registry
+      const teachersHeaders = ["Teacher ID", "Teacher Name", "Contact / Mobile", "Status", "Classes", "Sections", "Subjects", "Last Updated"];
+      const sampleTeachers = [
+        ["TCH-001", "Mohammad Tarique", "9835100001", "ACTIVE", "Class_9, Class_10", "A", "Mathematics, Science", "2025-04-01 10:00"],
+        ["TCH-002", "Ayesha Siddiqua", "9835100002", "ACTIVE", "Class_6, Class_7, Class_8", "A", "English, Social Studies", "2025-04-01 10:00"],
+        ["TCH-003", "Zubair Ahmad", "9835100003", "ACTIVE", "Class_1, Class_2, Class_3, Class_4, Class_5", "A", "Hindi, Urdu, Sanskrit", "2025-04-01 10:00"]
+      ];
+      const wsTeachers = XLSX.utils.aoa_to_sheet([teachersHeaders, ...sampleTeachers]);
+      wsTeachers['!rows'] = [{ hpt: 30 }];
+      wsTeachers['!cols'] = [
+        { wch: 16 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 32 }, { wch: 20 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsTeachers, "_TEACHERS");
+
+      // Tab 15: _SYSTEM_CONFIG Central Configuration
+      const configHeaders = ["Key", "Value", "Description", "Last Updated"];
+      const configData = [
+        ["marksEntryStatus", "ON", "Global switch for marks entry submissions: ON or OFF", "2025-04-01 10:00"],
+        ["marksEntryDeadline", "2026-12-31T23:59", "Final deadline timestamp (ISO) for marks and attendance submissions", "2025-04-01 10:00"],
+        ["workingDaysHY", "110", "Total working days in Half Yearly academic term", "2025-04-01 10:00"],
+        ["workingDaysAE", "115", "Total working days in Annual Exam academic term", "2025-04-01 10:00"],
+        ["academicSession", "2025-2026", "Current academic year session", "2025-04-01 10:00"],
+        ["schoolName", "Peace International School", "Official institutional name", "2025-04-01 10:00"],
+        ["schoolSubtitle", "Chakjado Dargabela, Vaishali, Bihar", "Campus location", "2025-04-01 10:00"]
+      ];
+      const wsConfig = XLSX.utils.aoa_to_sheet([configHeaders, ...configData]);
+      wsConfig['!rows'] = [{ hpt: 30 }];
+      wsConfig['!cols'] = [{ wch: 22 }, { wch: 20 }, { wch: 45 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, wsConfig, "_SYSTEM_CONFIG");
+
+      // Tab 16: _AUDIT_LOGS Real-Time Audit Trail
+      const auditHeaders = ["Timestamp", "Actor", "Teacher ID", "Action", "Class", "Subject / Type", "Record Count", "Status", "Message"];
+      const sampleAudit = [
+        ["2025-04-01 10:00:00", "System Initializer", "SYSTEM", "INIT_WORKBOOK", "ALL", "SETUP", 13, "SUCCESS", "Master workbook initialized with 13 class tabs and central registry tabs."]
+      ];
+      const wsAudit = XLSX.utils.aoa_to_sheet([auditHeaders, ...sampleAudit]);
+      wsAudit['!rows'] = [{ hpt: 30 }];
+      wsAudit['!cols'] = [
+        { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 45 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsAudit, "_AUDIT_LOGS");
+
+      XLSX.writeFile(wb, 'Peace_International_School_Master_Workbook_v2.xlsx');
     } catch (err) {
       console.error('Error generating multi-tab Excel workbook', err);
     }
   };
 
-  // Google Apps Script Auto-Setup & API Code Generator
+  // Google Apps Script Auto-Setup & API Code Generator (v2.0)
   const fullWorkbookScript = useMemo(() => {
     const classConfigs = ALL_CLASSES.map(c => {
       const subs = subjectAllotments[c] || SUBJECTS_BY_CLASS[c] || [];
@@ -285,404 +328,7 @@ export const GoogleSheetStructureModal: React.FC<GoogleSheetStructureModalProps>
       };
     });
 
-    return `/**
- * Peace International School - Complete Google Spreadsheet Engine
- * 
- * 1. createPeaceSchoolWorkbook() -> Generates all 13 class sheets with formatted headers
- * 2. doGet(e) -> Returns student names (for Mark Updation app) and full results (for Result Generator)
- * 3. doPost(e) -> Receives and updates marks & attendance directly into Google Sheet cells!
- * 
- * SETUP STEPS:
- * 1. Open your Google Sheet, click 'Extensions' > 'Apps Script'.
- * 2. Delete existing code, paste this entire file and save (Ctrl+S).
- * 3. Select 'createPeaceSchoolWorkbook' in the top toolbar dropdown and click 'Run' once.
- * 4. Click 'Deploy' > 'New deployment' > Select type: 'Web app'.
- * 5. Execute as: 'Me' | Who has access: 'Anyone'.
- * 6. Copy the Web App URL and paste it into the School App settings!
- */
-
-var SCHOOL_CONFIG = ${JSON.stringify(classConfigs, null, 2)};
-
-var BASE_PROFILE_COLUMNS = [
-  "S.No", "Roll No", "Admission No", "Student Name", "Father Name", "Mother Name",
-  "DOB", "Gender", "Category", "Mobile No", "Optional Subject", "Photo URL"
-];
-
-function createPeaceSchoolWorkbook() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-
-  SCHOOL_CONFIG.forEach(function(item) {
-    var sheetName = item.className;
-    var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-    }
-
-    var headers = BASE_PROFILE_COLUMNS.slice();
-    item.subjects.forEach(function(sub) {
-      headers.push(sub + " PT-1");
-      headers.push(sub + " PT-2");
-      headers.push(sub + "-HY-WRT");
-      headers.push(sub + " PT-3");
-      headers.push(sub + " PT-4");
-      headers.push(sub + "-AE-WRT");
-    });
-    headers.push("Attendance-HY", "Attendance-AE");
-
-    sheet.clear();
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-
-    // 1. Center alignment across ALL columns in the sheet
-    var maxRows = Math.max(sheet.getMaxRows(), 100);
-    var fullRange = sheet.getRange(1, 1, maxRows, headers.length);
-    fullRange.setHorizontalAlignment("center");
-    fullRange.setVerticalAlignment("middle");
-
-    // 2. Format Header Row 1: Forest Green (#1B4D3E), bold white text, centered, height 38px
-    sheet.setRowHeight(1, 38);
-    var headerRange = sheet.getRange(1, 1, 1, headers.length);
-    headerRange.setBackground("#1B4D3E");
-    headerRange.setFontColor("#FFFFFF");
-    headerRange.setFontWeight("bold");
-    headerRange.setFontSize(10);
-    headerRange.setHorizontalAlignment("center");
-    headerRange.setVerticalAlignment("middle");
-    headerRange.setWrap(true);
-    headerRange.setBorder(true, true, true, true, true, true, "#103328", SpreadsheetApp.BorderStyle.SOLID);
-
-    // 3. Keep text columns (Student Name, Father Name, Mother Name) left-aligned for data rows 2+
-    sheet.getRange(2, 4, maxRows - 1, 3).setHorizontalAlignment("left");
-
-    // 4. Freeze Header Row and Key Identifier Columns (S.No, Roll, Adm, Name)
-    sheet.setFrozenRows(1);
-    sheet.setFrozenColumns(4);
-
-    // 5. Set readable column widths for all columns
-    sheet.setColumnWidth(1, 55);  // S.No
-    sheet.setColumnWidth(2, 70);  // Roll No
-    sheet.setColumnWidth(3, 140); // Admission No
-    sheet.setColumnWidth(4, 180); // Student Name
-    sheet.setColumnWidth(5, 170); // Father Name
-    sheet.setColumnWidth(6, 170); // Mother Name
-    sheet.setColumnWidth(7, 100); // DOB
-    sheet.setColumnWidth(8, 70);  // Gender
-    sheet.setColumnWidth(9, 80);  // Category
-    sheet.setColumnWidth(10, 115);// Mobile
-    sheet.setColumnWidth(11, 130);// Optional Subject
-    sheet.setColumnWidth(12, 110);// Photo URL
-    for (var c = 13; c <= headers.length; c++) {
-      sheet.setColumnWidth(c, 115); // Marks & Attendance columns
-    }
-  });
-
-  SpreadsheetApp.getUi().alert("Success! All 13 Peace International School class sheets have been generated with colored headers and centered column alignment.");
-}
-
-function doGet(e) {
-  var action = (e && e.parameter && e.parameter.action) || "ping";
-  var targetClass = (e && e.parameter && e.parameter.class) || "10";
-  
-  if (action === "getStudents") {
-    return handleGetStudents(targetClass);
-  }
-  
-  if (action === "getFullResults") {
-    return handleGetFullResults(targetClass);
-  }
-  
-  return jsonResponse({
-    status: "success",
-    message: "Peace International School API is Active",
-    supportedClasses: SCHOOL_CONFIG.map(function(c) { return c.className; })
-  });
-}
-
-function doPost(e) {
-  try {
-    var rawText = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
-    var payload = JSON.parse(rawText);
-
-    if (payload.records && payload.records.length > 0) {
-      return handleSaveMarks(payload.records);
-    }
-
-    if (payload.action === "updateStudentDetails") {
-      return handleUpdateStudentDetails(payload.class, payload.student);
-    }
-
-    return jsonResponse({ status: "success", saved: 0 });
-  } catch (err) {
-    return jsonResponse({ status: "error", message: err.toString() });
-  }
-}
-
-function getTargetSheet(ss, className) {
-  return ss.getSheetByName("Class_" + className) || 
-         ss.getSheetByName("Class " + className) || 
-         ss.getSheetByName(className) || 
-         ss.getSheetByName("Students");
-}
-
-function resolveOptionalSubject(row, headers, name) {
-  for (var c = 0; c < headers.length; c++) {
-    var h = headers[c].toLowerCase();
-    if (h.indexOf("optional") !== -1 || h.indexOf("2nd lang") !== -1 || h.indexOf("second lang") !== -1 || h.indexOf("opted") !== -1 || h === "opt" || h === "language") {
-      var val = String(row[c] || "").trim();
-      if (val) {
-        if (val.toLowerCase() === "sanskrit" || val.toLowerCase().indexOf("sanskrit") !== -1) return "Sanskrit";
-        if (val.toLowerCase() === "urdu" || val.toLowerCase().indexOf("urdu") !== -1) return "Urdu";
-        return val;
-      }
-    }
-  }
-
-  for (var i = 0; i < row.length; i++) {
-    var cell = String(row[i] || "").trim().toLowerCase();
-    if (cell === "sanskrit" || cell === "संस्कृत") return "Sanskrit";
-    if (cell === "urdu" || cell === "اردو") return "Urdu";
-  }
-
-  // Strict: No demographic guessing from student name or surname!
-  // Return empty string if no explicit optional subject is declared.
-  return "";
-}
-
-function handleGetStudents(targetClass) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = getTargetSheet(ss, targetClass);
-  if (!sheet) {
-    return jsonResponse({ status: "error", message: "Sheet not found for Class " + targetClass });
-  }
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) {
-    return jsonResponse({ status: "success", students: [] });
-  }
-
-  var headers = data[0].map(function(h) { return String(h).trim(); });
-  var students = [];
-
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    if (!row[1] && !row[3]) continue;
-
-    var roll = row[1] || r;
-    var name = row[3] || ("Student " + roll);
-    var optionalSubject = resolveOptionalSubject(row, headers, name);
-
-    students.push({
-      roll: roll,
-      admNo: row[2] || ("PIS-2025-" + targetClass + "-" + ("00" + roll).slice(-3)),
-      name: name,
-      fatherName: row[4] || "GUARDIAN",
-      motherName: row[5] || "MOTHER",
-      dob: row[6] || "15/07/2014",
-      mobile: row[9] || "9835100000",
-      optionalSubject: optionalSubject,
-      photoUrl: row[11] || ""
-    });
-  }
-
-  return jsonResponse({ status: "success", students: students });
-}
-
-function handleSaveMarks(records) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var updatedCount = 0;
-
-  var recordsByClass = {};
-  for (var i = 0; i < records.length; i++) {
-    var rec = records[i];
-    var c = rec.class || "10";
-    if (!recordsByClass[c]) recordsByClass[c] = [];
-    recordsByClass[c].push(rec);
-  }
-
-  for (var clsKey in recordsByClass) {
-    var sheet = getTargetSheet(ss, clsKey);
-    if (!sheet) continue;
-
-    var data = sheet.getDataRange().getValues();
-    if (data.length < 2) continue;
-
-    var headers = data[0].map(function(h) { return String(h).trim(); });
-    var classRecs = recordsByClass[clsKey];
-
-    var rollToRow = {};
-    for (var r = 1; r < data.length; r++) {
-      var rollVal = String(data[r][1]).trim();
-      if (rollVal) rollToRow[rollVal] = r + 1;
-    }
-
-    for (var j = 0; j < classRecs.length; j++) {
-      var item = classRecs[j];
-      var targetRow = rollToRow[String(item.roll).trim()];
-      if (!targetRow) continue;
-
-      var targetCol = -1;
-
-      if (item.segment === "Attendance" || item.type === "Attendance") {
-        var attColName = (item.examType === "AE") ? "Attendance-AE" : "Attendance-HY";
-        for (var h = 0; h < headers.length; h++) {
-          if (headers[h].toLowerCase() === attColName.toLowerCase()) {
-            targetCol = h;
-            break;
-          }
-        }
-      } else {
-        var subAliases = [item.subject];
-        var subLower = item.subject.toLowerCase();
-        if (subLower === 'gk' || subLower === 'g.k.') {
-          subAliases.push('General Knowledge', 'General Awareness');
-        } else if (subLower === 'general knowledge') {
-          subAliases.push('GK', 'G.K.');
-        } else if (subLower === 'computer') {
-          subAliases.push('Computer Applications', 'Computer Science', 'IT');
-        } else if (subLower === 'environmental studies' || subLower === 'evs') {
-          subAliases.push('EVS', 'Environmental Studies');
-        } else if (subLower === 'social science' || subLower === 'social studies') {
-          subAliases.push('Social Science', 'Social Studies', 'SST');
-        }
-
-        var segType = item.type || item.segment || "";
-        var matchKeys = [];
-        for (var a = 0; a < subAliases.length; a++) {
-          var alias = subAliases[a];
-          matchKeys.push(alias + " " + segType);
-          matchKeys.push(alias + "-" + segType);
-          matchKeys.push(alias + " " + item.segment);
-          matchKeys.push(alias + "-" + item.segment);
-        }
-
-        for (var k = 0; k < matchKeys.length; k++) {
-          var keyLower = matchKeys[k].trim().toLowerCase();
-          for (var h = 0; h < headers.length; h++) {
-            if (headers[h].toLowerCase() === keyLower) {
-              targetCol = h;
-              break;
-            }
-          }
-          if (targetCol !== -1) break;
-        }
-      }
-
-      if (targetCol !== -1) {
-        sheet.getRange(targetRow, targetCol + 1).setValue(item.value);
-        updatedCount++;
-      }
-    }
-  }
-
-  return jsonResponse({
-    status: "success",
-    updated: updatedCount,
-    message: "Successfully updated " + updatedCount + " cells in Google Sheet"
-  });
-}
-
-function handleGetFullResults(targetClass) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = getTargetSheet(ss, targetClass);
-  if (!sheet) {
-    return jsonResponse({ success: false, message: "Sheet not found for Class " + targetClass });
-  }
-
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) {
-    return jsonResponse({ success: true, students: [] });
-  }
-
-  var headers = data[0].map(function(h) { return String(h).trim(); });
-  var students = [];
-
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    if (!row[1] && !row[3]) continue;
-
-    var roll = row[1] || r;
-    var admNo = row[2] || ("PIS-2025-" + targetClass + "-" + ("00" + roll).slice(-3));
-    var name = row[3] || ("Student " + roll);
-    var fatherName = row[4] || "GUARDIAN";
-    var motherName = row[5] || "MOTHER";
-    var dob = row[6] || "15/07/2014";
-    var mobile = row[9] || "9835100000";
-    var optionalSubject = resolveOptionalSubject(row, headers, name);
-    var photoUrl = row[11] || "";
-
-    var rawMarks = {};
-    var attHY = "95/110";
-    var attAE = "102/115";
-
-    for (var c = 12; c < headers.length; c++) {
-      var header = headers[c];
-      var val = row[c];
-      if (header === "Attendance-HY") {
-        attHY = val ? String(val) : attHY;
-      } else if (header === "Attendance-AE") {
-        attAE = val ? String(val) : attAE;
-      } else if (val !== undefined && val !== "") {
-        var key = header.replace(/\\s+/g, "_").replace(/-/g, "_");
-        rawMarks[key] = val;
-        rawMarks[header] = val;
-      }
-    }
-
-    students.push({
-      roll: parseInt(roll) || roll,
-      admNo: String(admNo),
-      name: String(name),
-      fatherName: String(fatherName),
-      motherName: String(motherName),
-      dob: String(dob),
-      studentClass: String(targetClass),
-      section: "A",
-      mobile: String(mobile),
-      optionalSubject: String(optionalSubject),
-      photoUrl: String(photoUrl),
-      attendanceHY: String(attHY),
-      attendanceAE: String(attAE),
-      rawMarks: rawMarks
-    });
-  }
-
-  return jsonResponse({ success: true, students: students });
-}
-
-function handleUpdateStudentDetails(className, student) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = getTargetSheet(ss, className);
-  if (!sheet) return jsonResponse({ status: "error", message: "Class sheet not found" });
-
-  var data = sheet.getDataRange().getValues();
-  var foundRow = -1;
-
-  for (var r = 1; r < data.length; r++) {
-    if (String(data[r][1]) == String(student.roll) || (student.admNo && String(data[r][2]) == String(student.admNo))) {
-      foundRow = r + 1;
-      break;
-    }
-  }
-
-  if (foundRow > 0) {
-    if (student.roll) sheet.getRange(foundRow, 2).setValue(student.roll);
-    if (student.admNo) sheet.getRange(foundRow, 3).setValue(student.admNo);
-    if (student.name) sheet.getRange(foundRow, 4).setValue(student.name);
-    if (student.fatherName) sheet.getRange(foundRow, 5).setValue(student.fatherName);
-    if (student.motherName) sheet.getRange(foundRow, 6).setValue(student.motherName);
-    if (student.dob) sheet.getRange(foundRow, 7).setValue(student.dob);
-    if (student.mobile) sheet.getRange(foundRow, 10).setValue(student.mobile);
-    if (student.optionalSubject) sheet.getRange(foundRow, 11).setValue(student.optionalSubject);
-    if (student.photoUrl) sheet.getRange(foundRow, 12).setValue(student.photoUrl);
-    return jsonResponse({ status: "success", message: "Student updated on row " + foundRow });
-  }
-
-  return jsonResponse({ status: "error", message: "Student not found" });
-}
-
-function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}`;
+    return getCompleteAppsScript(classConfigs);
   }, [subjectAllotments]);
 
   const handleCopyScript = () => {
@@ -1046,13 +692,13 @@ function jsonResponse(obj) {
                 <div className="space-y-1.5 max-w-2xl">
                   <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-[11px] font-semibold">
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>One Master File with 13 Tabs</span>
+                    <span>Master File with 16 Normalized Tabs (13 Classes + _TEACHERS + _SYSTEM_CONFIG + _AUDIT_LOGS)</span>
                   </div>
                   <h4 className="text-base font-bold text-white flex items-center gap-2">
-                    <span>1-Click Download Master School Workbook (.XLSX)</span>
+                    <span>1-Click Download Master School Workbook v2 (.XLSX)</span>
                   </h4>
                   <p className="text-xs text-emerald-100/90 leading-relaxed">
-                    इस एक Excel फाइल में सभी 13 क्लासों की अलग-अलग Tabs (<code className="text-amber-300">Class_Nursery</code> से <code className="text-amber-300">Class_10</code>) बनी हुई हैं। अपने कंप्यूटर में मौजूद Excel शीट से स्टूडेंट्स का पर्सनल डेटा कॉपी करें और इन Tabs के Columns A से L में पेस्ट करके इसे Google Drive में अपलोड कर दें!
+                    इस मास्टर Excel फाइल में सभी 13 क्लासों की अलग-अलग Tabs (<code className="text-amber-300">Class_Nursery</code> से <code className="text-amber-300">Class_10</code>) के साथ-साथ केंद्रीय <code className="text-amber-300">_TEACHERS</code>, <code className="text-amber-300">_SYSTEM_CONFIG</code> और <code className="text-amber-300">_AUDIT_LOGS</code> शीट्स भी तैयार हैं। इसे सीधे Google Drive में अपलोड करके Apps Script से कनेक्ट करें!
                   </p>
                 </div>
 
@@ -1061,7 +707,7 @@ function jsonResponse(obj) {
                   className="px-5 py-3 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black flex items-center gap-2 shadow-lg cursor-pointer transition-all hover:scale-105 shrink-0"
                 >
                   <Download className="w-4 h-4 text-slate-950" />
-                  <span>Download Complete 13-Tab Excel (.XLSX)</span>
+                  <span>Download Master Workbook v2 (.XLSX)</span>
                 </button>
               </div>
 
@@ -1070,15 +716,15 @@ function jsonResponse(obj) {
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 text-xs space-y-2">
                   <div className="flex items-center gap-2 font-bold text-emerald-950">
                     <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs">A</span>
-                    <span>Columns A to L (1 to 12): स्टूडेंट पर्सनल डेटा</span>
+                    <span>Columns A to L (1 to 12): स्टूडेंट प्रोफाइल डेटा</span>
                   </div>
                   <p className="text-emerald-900 leading-relaxed">
                     यह 12 कॉलम आपके कंप्यूटर वाली Excel Sheet से <strong>Copy & Paste</strong> होंगे:
                   </p>
                   <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono text-emerald-900 bg-white p-2.5 rounded-lg border border-emerald-100">
                     <div>1. S.No</div>
-                    <div>2. Roll No ⭐</div>
-                    <div>3. Admission No ⭐</div>
+                    <div>2. Roll No</div>
+                    <div className="font-bold text-emerald-950">3. Admission No (URN) ⭐</div>
                     <div>4. Student Name ⭐</div>
                     <div>5. Father Name</div>
                     <div>6. Mother Name</div>
@@ -1090,7 +736,7 @@ function jsonResponse(obj) {
                     <div>12. Photo URL (Optional)</div>
                   </div>
                   <p className="text-[11px] text-emerald-700 italic">
-                    * Roll No और Student Name सबसे मुख्य हैं, जिनके आधार पर मार्क अपडेशन पोर्टल और रिजल्ट जनरेटर डेटा मैप करते हैं।
+                    * <strong>Admission No (Column C / URN)</strong> छात्र की आधिकारिक विशिष्ट पहचान (Authoritative Unique Identifier) है।
                   </p>
                 </div>
 

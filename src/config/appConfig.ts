@@ -10,7 +10,7 @@
 export const PERMANENT_GOOGLE_APPS_SCRIPT_URL: string =
   (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_GAS_URL)
     ? String((import.meta as any).env.VITE_GAS_URL).trim()
-    : 'https://script.google.com/macros/s/AKfycbzL5nQ69vOqP_peace_school_api_v1/exec';
+    : 'https://script.google.com/macros/s/AKfycbwYpfYa3Hw3P7P7cOxAVknPHszmGDtRlfZO_U_-iyjT11gnRwuppqNgj6WHlDBUD79G_Q/exec';
 
 /**
  * Returns the effective Google Apps Script Web App URL,

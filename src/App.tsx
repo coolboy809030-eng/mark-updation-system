@@ -407,7 +407,7 @@ export default function App() {
   // Cross-device sync from Google Sheet _TEACHERS tab on startup
   useEffect(() => {
     const syncFromCloud = async () => {
-      const gasUrl = settings.googleSheetApiUrl;
+      const gasUrl = getEffectiveGasUrl(settings.googleSheetApiUrl);
       if (!gasUrl || gasUrl.includes('PASTE_YOUR')) return;
       try {
         const cloudData = await fetchTeacherRegistryFromGAS(gasUrl);

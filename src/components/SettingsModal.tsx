@@ -608,7 +608,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSyncingTeachersCloud(true);
     setTeacherCloudSyncStatus(null);
     try {
-      const res = await saveTeacherRegistryToGAS(currentAccounts, teacherAllotments, databaseUrl);
+      const targetUrl = databaseUrl || settings.googleSheetApiUrl;
+      const res = await saveTeacherRegistryToGAS(currentAccounts, teacherAllotments, targetUrl);
       if (res.success) {
         setTeacherCloudSyncStatus(`✅ Google Sheet (_TEACHERS) में सफलतापूर्वक बैकअप सहेजा गया!`);
       } else {
@@ -626,7 +627,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsSyncingTeachersCloud(true);
     setTeacherCloudSyncStatus(null);
     try {
-      const res = await fetchTeacherRegistryFromGAS(databaseUrl);
+      const targetUrl = databaseUrl || settings.googleSheetApiUrl;
+      const res = await fetchTeacherRegistryFromGAS(targetUrl);
       if (res.success && res.accounts.length > 0) {
         if (onUpdateTeacherAccounts) {
           onUpdateTeacherAccounts(res.accounts);
