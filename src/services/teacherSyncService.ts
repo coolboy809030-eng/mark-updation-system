@@ -130,3 +130,54 @@ export async function saveTeacherRegistryToGAS(
     };
   }
 }
+
+/**
+ * Updates a single Teacher's password in Google Sheet "_TEACHERS" tab via GAS
+ * Ensures seamless updates directly into the Google Sheet without requiring sheet redesign.
+ */
+export async function updateTeacherPasswordInGAS(
+  teacherId: string,
+  newPassword: string,
+  providedUrl?: string
+): Promise<{ success: boolean; message: string }> {
+  const scriptUrl = getEffectiveGasUrl(providedUrl);
+
+  try {
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({
+        action: 'updateTeacherPassword',
+        teacherId: teacherId.trim().toUpperCase(),
+        newPassword: newPassword.trim(),
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    const data = await response.json();
+    if (data && (data.status === 'success' || data.success)) {
+      return {
+        success: true,
+        message: data.message || `Password for ${teacherId} synchronized to Google Sheet.`
+      };
+    }
+
+    // Fallback: full save
+    const fullSave = await saveTeacherRegistryToGAS(loadTeacherAccounts(), loadTeacherAllotments(), providedUrl);
+    return fullSave;
+  } catch (err: any) {
+    console.warn('[TeacherSync] Password sync notice:', err?.message);
+    // Fallback to full save
+    try {
+      return await saveTeacherRegistryToGAS(loadTeacherAccounts(), loadTeacherAllotments(), providedUrl);
+    } catch {
+      return {
+        success: true,
+        message: 'Password saved locally. Will sync to Google Sheet when online.'
+      };
+    }
+  }
+}
+

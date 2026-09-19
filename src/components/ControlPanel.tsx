@@ -13,18 +13,26 @@ import {
   Sparkles,
   Info,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  KeyRound,
+  LogIn,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 interface ControlPanelProps {
   entryType: EntryType | '';
   onEntryTypeChange: (type: EntryType) => void;
 
-  // Module 3C: Teacher Identity
+  // Module 3C: Teacher Identity & Authentication
   teacherAccounts?: TeacherAccount[];
   selectedTeacherId: string;
   onTeacherChange: (teacherId: string) => void;
   isTeacherInactive?: boolean;
+  authenticatedTeacher?: TeacherAccount | null;
+  onOpenTeacherLogin?: () => void;
+  onOpenTeacherChangePassword?: () => void;
+  onTeacherLogout?: () => void;
 
   // Cascading Class Selection
   selectedClass: ClassLevel | '';
@@ -76,6 +84,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   selectedTeacherId,
   onTeacherChange,
   isTeacherInactive = false,
+  authenticatedTeacher,
+  onOpenTeacherLogin,
+  onOpenTeacherChangePassword,
+  onTeacherLogout,
   selectedClass,
   onClassChange,
   authorizedClasses,
@@ -202,16 +214,25 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Module 3C: Teacher Identity Selection Bar */}
+      {/* Module 3C: Teacher Identity Selection & Authentication Bar */}
       <div className="mb-4 pb-4 border-b border-slate-100">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
           <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
             <UserCheck className="w-4 h-4 text-emerald-700" />
-            <span>शिक्षक पहचान (Teacher Identity) *</span>
+            <span>शिक्षक पहचान व प्रमाणीकरण (Teacher Identity & Login) *</span>
           </label>
-          <span className="text-[11px] text-slate-500 font-medium">
-            प्रमाणीकरण: Teacher ID → Class → Section → Subject
-          </span>
+          <div className="flex items-center gap-2">
+            {authenticatedTeacher ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>लॉगिन सत्यापित (Logged in)</span>
+              </span>
+            ) : (
+              <span className="text-[11px] text-slate-500 font-medium">
+                प्रमाणीकरण: Teacher ID + Password → Authorized Classes
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -233,7 +254,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div className="flex items-center gap-2">
             {activeTeacher ? (
               <div
-                className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+                className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 ${
                   activeTeacher.active
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                     : 'bg-rose-50 border-rose-300 text-rose-800'
@@ -242,20 +263,49 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <div className="flex items-center gap-1.5 truncate">
                   <span className="font-mono font-bold">{activeTeacher.teacherId}</span>
                 </div>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
-                    activeTeacher.active
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-rose-600 text-white'
-                  }`}
-                >
-                  {activeTeacher.active ? 'Active' : 'Inactive'}
-                </span>
+                
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {authenticatedTeacher?.teacherId === activeTeacher.teacherId ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onOpenTeacherChangePassword}
+                        className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 transition-colors text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                        title="पासवर्ड बदलें"
+                      >
+                        <KeyRound className="w-2.5 h-2.5" />
+                        <span>पासवर्ड</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onTeacherLogout}
+                        className="p-1 rounded-md bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="लॉगआउट करें"
+                      >
+                        <LogOut className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onOpenTeacherLogin}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                    >
+                      <LogIn className="w-3 h-3" />
+                      <span>लॉगिन</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="w-full px-3 py-2 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 text-center font-medium">
-                No Teacher Selected
-              </div>
+              <button
+                type="button"
+                onClick={onOpenTeacherLogin}
+                className="w-full px-3 py-2 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-xs text-emerald-800 text-center font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5 text-emerald-700" />
+                <span>शिक्षक लॉगिन करें (Login)</span>
+              </button>
             )}
           </div>
         </div>

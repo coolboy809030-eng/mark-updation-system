@@ -2,8 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { AppSettings, ClassLevel, TeacherAllotment, TeacherAccount } from '../types';
 import { SUBJECTS_BY_CLASS, ALL_SUBJECT_OPTIONS } from '../data/schoolConfig';
 import { CLASS_OPTIONS } from './ControlPanel';
-import { generateNextTeacherId, isTeacherIdUnique, findDuplicateTeacherPermissions } from '../utils/teacherAccount';
-import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from '../services/teacherSyncService';
+import {
+  generateNextTeacherId,
+  isTeacherIdUnique,
+  findDuplicateTeacherPermissions,
+  adminResetTeacherPassword,
+  getPendingPasswordResetRequests,
+  dismissPasswordResetRequest,
+  DEFAULT_TEACHER_PASSWORD
+} from '../utils/teacherAccount';
+import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS, updateTeacherPasswordInGAS } from '../services/teacherSyncService';
 import {
   Shield,
   KeyRound,
@@ -34,7 +42,11 @@ import {
   Cloud,
   CloudUpload,
   CloudDownload,
-  Link2
+  Link2,
+  Eye,
+  EyeOff,
+  Bell,
+  RotateCcw
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -133,9 +145,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [teacherIdInput, setTeacherIdInput] = useState(() => generateNextTeacherId(currentAccounts));
   const [teacherNameInput, setTeacherNameInput] = useState('');
   const [teacherContactInput, setTeacherContactInput] = useState('');
+  const [teacherPasswordInput, setTeacherPasswordInput] = useState(DEFAULT_TEACHER_PASSWORD);
   const [teacherActiveInput, setTeacherActiveInput] = useState(true);
   const [teacherAccountDiag, setTeacherAccountDiag] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
+  const [showTeacherPasswords, setShowTeacherPasswords] = useState<Record<string, boolean>>({});
+  const [resetRequests, setResetRequests] = useState(() => getPendingPasswordResetRequests());
+  const [resettingTeacherId, setResettingTeacherId] = useState<string | null>(null);
+
+  // Sync reset requests on open
+  useEffect(() => {
+    if (isOpen) {
+      setResetRequests(getPendingPasswordResetRequests());
+    }
+  }, [isOpen]);
 
   const handleCopyPersonalTeacherLink = (tId: string) => {
     const base = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
@@ -349,6 +372,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
 
     const now = new Date().toISOString();
+    const cleanPass = teacherPasswordInput.trim() || DEFAULT_TEACHER_PASSWORD;
 
     if (editingAccountId) {
       // Update existing account
@@ -359,6 +383,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             teacherId: cleanId,
             teacherName: cleanName,
             contact: teacherContactInput.trim() || undefined,
+            password: cleanPass,
             active: teacherActiveInput,
             updatedAt: now
           };
@@ -373,6 +398,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
       setTeacherNameInput('');
       setTeacherContactInput('');
+      setTeacherPasswordInput(DEFAULT_TEACHER_PASSWORD);
       setTeacherActiveInput(true);
       setTeacherIdInput(generateNextTeacherId(updated));
     } else {
@@ -382,6 +408,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         teacherId: cleanId,
         teacherName: cleanName,
         contact: teacherContactInput.trim() || undefined,
+        password: cleanPass,
+        mustChangePassword: cleanPass === DEFAULT_TEACHER_PASSWORD,
         active: teacherActiveInput,
         createdAt: now,
         updatedAt: now,
@@ -391,13 +419,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onUpdateTeacherAccounts?.(updated);
       setTeacherAccountDiag({
         type: 'success',
-        message: `✅ नया शिक्षक खाता [${cleanId}] "${cleanName}" सफलतापूर्वक सहेजा गया!`
+        message: `✅ नया शिक्षक खाता [${cleanId}] "${cleanName}" (पासवर्ड: ${cleanPass}) सफलतापूर्वक सहेजा गया!`
       });
       setTeacherNameInput('');
       setTeacherContactInput('');
+      setTeacherPasswordInput(DEFAULT_TEACHER_PASSWORD);
       setTeacherActiveInput(true);
       setTeacherIdInput(generateNextTeacherId(updated));
     }
+  };
+
+  const handleApproveResetRequest = async (teacherId: string, reqId?: string) => {
+    setResettingTeacherId(teacherId);
+    try {
+      const res = adminResetTeacherPassword(teacherId);
+      if (res.success && res.teacher) {
+        const updated = currentAccounts.map(a => a.teacherId === teacherId ? res.teacher! : a);
+        onUpdateTeacherAccounts?.(updated);
+        if (reqId) {
+          dismissPasswordResetRequest(reqId);
+        }
+        setResetRequests(getPendingPasswordResetRequests());
+        setTeacherAccountDiag({
+          type: 'success',
+          message: `✅ शिक्षक [${teacherId}] का पासवर्ड डिफ़ॉल्ट (${DEFAULT_TEACHER_PASSWORD}) पर रीसेट कर दिया गया है! Google Sheet (_TEACHERS) में सिंक हो रहा है...`
+        });
+        
+        await updateTeacherPasswordInGAS(teacherId, DEFAULT_TEACHER_PASSWORD, databaseUrl);
+        setTeacherAccountDiag({
+          type: 'success',
+          message: `✅ शिक्षक [${teacherId}] का पासवर्ड डिफ़ॉल्ट (${DEFAULT_TEACHER_PASSWORD}) पर रीसेट होकर Google Sheet में सफलतापूर्वक सुरक्षित हो गया!`
+        });
+      } else {
+        setTeacherAccountDiag({
+          type: 'error',
+          message: res.message || 'पासवर्ड रीसेट करने में त्रुटि।'
+        });
+      }
+    } catch (err: any) {
+      setTeacherAccountDiag({
+        type: 'error',
+        message: `⚠️ पासवर्ड रीसेट सिंक में त्रुटि: ${err?.message || err}`
+      });
+    } finally {
+      setResettingTeacherId(null);
+    }
+  };
+
+  const handleDismissReset = (reqId: string) => {
+    dismissPasswordResetRequest(reqId);
+    setResetRequests(getPendingPasswordResetRequests());
   };
 
   const handleEditAccount = (acc: TeacherAccount) => {
@@ -405,6 +476,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTeacherIdInput(acc.teacherId);
     setTeacherNameInput(acc.teacherName);
     setTeacherContactInput(acc.contact || '');
+    setTeacherPasswordInput(acc.password || DEFAULT_TEACHER_PASSWORD);
     setTeacherActiveInput(acc.active);
     setTeacherAccountDiag(null);
   };
@@ -413,6 +485,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setEditingAccountId(null);
     setTeacherNameInput('');
     setTeacherContactInput('');
+    setTeacherPasswordInput(DEFAULT_TEACHER_PASSWORD);
     setTeacherActiveInput(true);
     setTeacherAccountDiag(null);
     setTeacherIdInput(generateNextTeacherId(currentAccounts));
@@ -987,6 +1060,70 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
 
+                {/* Password Reset Requests Alert Banner */}
+                {resetRequests.length > 0 && (
+                  <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                        <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
+                        <span>लंबित पासवर्ड रीसेट अनुरोध (Password Reset Requests): {resetRequests.length}</span>
+                      </div>
+                      <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                        Admin Action Required
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {resetRequests.map((req) => (
+                        <div
+                          key={req.id}
+                          className="bg-white p-2.5 rounded-lg border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{req.teacherName}</span>
+                              <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold">
+                                {req.teacherId}
+                              </span>
+                              {req.contact && (
+                                <span className="text-slate-500 text-[11px]">({req.contact})</span>
+                              )}
+                            </div>
+                            {req.note && (
+                              <p className="text-[11px] text-slate-600 mt-0.5 italic">
+                                &quot;{req.note}&quot;
+                              </p>
+                            )}
+                            <span className="text-[10px] text-slate-400">
+                              अनुरोध समय: {new Date(req.requestedAt).toLocaleString('hi-IN')}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              disabled={resettingTeacherId === req.teacherId}
+                              onClick={() => handleApproveResetRequest(req.teacherId, req.id)}
+                              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all disabled:opacity-50"
+                            >
+                              <RotateCcw className={`w-3 h-3 ${resettingTeacherId === req.teacherId ? 'animate-spin' : ''}`} />
+                              <span>{resettingTeacherId === req.teacherId ? 'रीसेट हो रहा है...' : 'स्वीकार करें व 123456 पर रीसेट करें'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDismissReset(req.id)}
+                              className="px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-semibold cursor-pointer transition-colors"
+                              title="अनुरोध खारिज करें"
+                            >
+                              खारिज
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Account Form */}
                 <form onSubmit={handleSaveTeacherAccount} className="space-y-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
                   <div className="flex items-center justify-between">
@@ -1014,7 +1151,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     {/* Teacher ID */}
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">
@@ -1045,6 +1182,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-600"
                       />
                       <span className="text-[10px] text-slate-500">नाम बदलने पर ID वही रहेगी</span>
+                    </div>
+
+                    {/* Password / PIN */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        पासवर्ड / पिन (Password) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={teacherPasswordInput}
+                        onChange={(e) => setTeacherPasswordInput(e.target.value)}
+                        placeholder="डिफ़ॉल्ट 123456"
+                        className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-indigo-600"
+                      />
+                      <span className="text-[10px] text-slate-500">डिफ़ॉल्ट: 123456</span>
                     </div>
 
                     {/* Contact & Status */}
@@ -1125,7 +1278,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {currentAccounts.map((acc, idx) => (
                         <div
                           key={`${acc.id || acc.teacherId}_${idx}`}
-                          className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 transition-colors"
+                          className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-slate-300 transition-colors"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span className="px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 shrink-0">
@@ -1135,13 +1288,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               <p className="text-xs font-bold text-slate-900 truncate">
                                 {acc.teacherName}
                               </p>
-                              {acc.contact && (
-                                <p className="text-[10px] text-slate-500 truncate">{acc.contact}</p>
-                              )}
+                              <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-500">
+                                {acc.contact && <span>{acc.contact}</span>}
+                                <span>•</span>
+                                <span className="flex items-center gap-1 font-mono font-semibold text-slate-700">
+                                  <span>पासवर्ड:</span>
+                                  <span>
+                                    {showTeacherPasswords[acc.teacherId]
+                                      ? (acc.password || DEFAULT_TEACHER_PASSWORD)
+                                      : '••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowTeacherPasswords(prev => ({
+                                        ...prev,
+                                        [acc.teacherId]: !prev[acc.teacherId]
+                                      }))
+                                    }
+                                    className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                    title={showTeacherPasswords[acc.teacherId] ? 'छुपाएं' : 'दिखाएं'}
+                                  >
+                                    {showTeacherPasswords[acc.teacherId] ? (
+                                      <EyeOff className="w-3 h-3" />
+                                    ) : (
+                                      <Eye className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </span>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                            {/* Reset Password to 123456 button */}
+                            <button
+                              type="button"
+                              disabled={resettingTeacherId === acc.teacherId}
+                              onClick={() => handleApproveResetRequest(acc.teacherId)}
+                              className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-semibold"
+                              title="पासवर्ड को डिफ़ॉल्ट 123456 पर रीसेट करें"
+                            >
+                              <RotateCcw className={`w-3 h-3 text-amber-600 ${resettingTeacherId === acc.teacherId ? 'animate-spin' : ''}`} />
+                              <span>{resettingTeacherId === acc.teacherId ? 'रीसेट...' : 'रीसेट 123456'}</span>
+                            </button>
+
                             {/* Copy Personal Teacher URL */}
                             <button
                               type="button"

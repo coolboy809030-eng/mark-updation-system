@@ -1,8 +1,9 @@
 import React from 'react';
 import { SCHOOL_NAME, ACADEMIC_SESSION } from '../data/schoolConfig';
 import { SCHOOL_LOGO_BASE64 } from '../data/logoData';
-import { Wifi, WifiOff, Settings, Database, Sparkles, Shield, ArrowRight, PanelLeft, Download, FileText } from 'lucide-react';
+import { Wifi, WifiOff, Settings, Database, Sparkles, Shield, ArrowRight, PanelLeft, Download, FileText, UserCheck, KeyRound, LogIn, LogOut } from 'lucide-react';
 import { SyncStatusBar } from './common/SyncStatusBar';
+import { TeacherAccount } from '../types';
 
 interface HeaderProps {
   isOnline: boolean;
@@ -15,6 +16,10 @@ interface HeaderProps {
   onSwitchToResultGenerator?: () => void;
   isSystemLocked?: boolean;
   isTeacherPortal?: boolean;
+  authenticatedTeacher?: TeacherAccount | null;
+  onOpenTeacherLogin?: () => void;
+  onOpenTeacherChangePassword?: () => void;
+  onTeacherLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,7 +32,11 @@ export const Header: React.FC<HeaderProps> = ({
   isAdminSessionActive,
   onSwitchToResultGenerator,
   isSystemLocked,
-  isTeacherPortal
+  isTeacherPortal,
+  authenticatedTeacher,
+  onOpenTeacherLogin,
+  onOpenTeacherChangePassword,
+  onTeacherLogout
 }) => {
   return (
     <header className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] border-b border-slate-800 text-white shadow-md sticky top-0 z-40">
@@ -107,6 +116,46 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               )}
             </div>
+
+            {/* Teacher Auth State in Header */}
+            {isTeacherPortal && (
+              <>
+                {authenticatedTeacher ? (
+                  <div className="flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/50 rounded-xl px-2.5 py-1 text-xs text-emerald-200">
+                    <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-bold truncate max-w-[120px] sm:max-w-[160px]">
+                      {authenticatedTeacher.teacherName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onOpenTeacherChangePassword}
+                      className="p-1 text-emerald-300 hover:text-white hover:bg-emerald-800/60 rounded-md transition-colors cursor-pointer"
+                      title="पासवर्ड बदलें (Change Password)"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onTeacherLogout}
+                      className="p-1 text-rose-300 hover:text-rose-100 hover:bg-rose-900/60 rounded-md transition-colors cursor-pointer"
+                      title="लॉगआउट करें (Logout)"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onOpenTeacherLogin}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    title="शिक्षक लॉगिन करें (Teacher Login)"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>शिक्षक लॉगिन</span>
+                  </button>
+                )}
+              </>
+            )}
 
             {/* PIS Data Base Status Badge & Settings (Visible ONLY to Admin when NOT in teacher portal) */}
             {isAdminSessionActive && !isTeacherPortal && (

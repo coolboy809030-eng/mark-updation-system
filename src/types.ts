@@ -73,10 +73,26 @@ export interface TeacherAccount {
   teacherName: string;     // display name
   contact?: string;        // phone / email (optional)
   active: boolean;         // true = Active, false = Inactive
+  password?: string;       // teacher password or PIN (default: "123456")
+  mustChangePassword?: boolean; // true if teacher needs to set new password after admin reset
+  resetRequested?: boolean;     // true if teacher submitted a forgot password request
+  resetRequestedAt?: string;    // ISO timestamp of forgot password request
+  resetRequestNote?: string;    // optional note from teacher
   credentialRef?: string;  // reference placeholder for future authentication credentials
   createdAt: string;       // ISO timestamp
   updatedAt: string;       // ISO timestamp
   lastLoginAt?: string | null;
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  contact?: string;
+  requestedAt: string;
+  note?: string;
+  status: 'PENDING' | 'RESOLVED' | 'DISMISSED';
+  resolvedAt?: string;
 }
 
 export interface TeacherAllotment {

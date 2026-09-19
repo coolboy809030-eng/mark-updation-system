@@ -270,17 +270,17 @@ export const GoogleSheetStructureModal: React.FC<GoogleSheetStructureModalProps>
         XLSX.utils.book_append_sheet(wb, ws, `Class_${cls}`);
       });
 
-      // Tab 14: _TEACHERS Registry
-      const teachersHeaders = ["Teacher ID", "Teacher Name", "Contact / Mobile", "Status", "Classes", "Sections", "Subjects", "Last Updated"];
+      // Tab 14: _TEACHERS Registry (With Password Column)
+      const teachersHeaders = ["Teacher ID", "Password", "Teacher Name", "Contact / Mobile", "Status", "Classes", "Sections", "Subjects", "Last Updated"];
       const sampleTeachers = [
-        ["TCH-001", "Mohammad Tarique", "9835100001", "ACTIVE", "Class_9, Class_10", "A", "Mathematics, Science", "2025-04-01 10:00"],
-        ["TCH-002", "Ayesha Siddiqua", "9835100002", "ACTIVE", "Class_6, Class_7, Class_8", "A", "English, Social Studies", "2025-04-01 10:00"],
-        ["TCH-003", "Zubair Ahmad", "9835100003", "ACTIVE", "Class_1, Class_2, Class_3, Class_4, Class_5", "A", "Hindi, Urdu, Sanskrit", "2025-04-01 10:00"]
+        ["TCH-001", "123456", "Mohammad Tarique", "9835100001", "ACTIVE", "Class_9, Class_10", "A", "Mathematics, Science", "2025-04-01 10:00"],
+        ["TCH-002", "123456", "Ayesha Siddiqua", "9835100002", "ACTIVE", "Class_6, Class_7, Class_8", "A", "English, Social Studies", "2025-04-01 10:00"],
+        ["TCH-003", "123456", "Zubair Ahmad", "9835100003", "ACTIVE", "Class_1, Class_2, Class_3, Class_4, Class_5", "A", "Hindi, Urdu, Sanskrit", "2025-04-01 10:00"]
       ];
       const wsTeachers = XLSX.utils.aoa_to_sheet([teachersHeaders, ...sampleTeachers]);
       wsTeachers['!rows'] = [{ hpt: 30 }];
       wsTeachers['!cols'] = [
-        { wch: 16 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 32 }, { wch: 20 }
+        { wch: 16 }, { wch: 14 }, { wch: 24 }, { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 32 }, { wch: 20 }
       ];
       XLSX.utils.book_append_sheet(wb, wsTeachers, "_TEACHERS");
 

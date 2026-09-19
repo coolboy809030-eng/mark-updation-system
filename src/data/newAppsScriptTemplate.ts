@@ -186,17 +186,32 @@ function setupTeachersSheet(ss) {
   }
 
   var headers = [
-    "Teacher ID", "Teacher Name", "Contact / Mobile", "Status",
+    "Teacher ID", "Password", "Teacher Name", "Contact / Mobile", "Status",
     "Classes", "Sections", "Subjects", "Last Updated"
   ];
 
   var currentData = sheet.getDataRange().getValues();
-  if (currentData.length < 1 || String(currentData[0][0]).trim() !== "Teacher ID") {
+  if (currentData.length < 1 || !currentData[0][0]) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else {
+    var headerRow = currentData[0].map(function(h) { return String(h || "").trim().toLowerCase(); });
+    var hasPassword = headerRow.some(function(h) { return h.indexOf("password") !== -1 || h.indexOf("pin") !== -1; });
+    if (!hasPassword) {
+      sheet.insertColumnAfter(1);
+      sheet.getRange(1, 2).setValue("Password");
+      if (currentData.length > 1) {
+        var defaultVals = [];
+        for (var p = 1; p < currentData.length; p++) {
+          defaultVals.push(["123456"]);
+        }
+        sheet.getRange(2, 2, defaultVals.length, 1).setValues(defaultVals);
+      }
+    }
   }
 
   sheet.setRowHeight(1, 38);
-  var headerRange = sheet.getRange(1, 1, 1, headers.length);
+  var colCount = sheet.getLastColumn() >= headers.length ? sheet.getLastColumn() : headers.length;
+  var headerRange = sheet.getRange(1, 1, 1, colCount);
   headerRange.setBackground("#1E293B");
   headerRange.setFontColor("#FFFFFF");
   headerRange.setFontWeight("bold");
@@ -206,13 +221,14 @@ function setupTeachersSheet(ss) {
   sheet.setFrozenRows(1);
 
   sheet.setColumnWidth(1, 130);
-  sheet.setColumnWidth(2, 190);
-  sheet.setColumnWidth(3, 140);
-  sheet.setColumnWidth(4, 95);
-  sheet.setColumnWidth(5, 180);
-  sheet.setColumnWidth(6, 110);
-  sheet.setColumnWidth(7, 280);
-  sheet.setColumnWidth(8, 170);
+  sheet.setColumnWidth(2, 110); // Password
+  sheet.setColumnWidth(3, 190);
+  sheet.setColumnWidth(4, 140);
+  sheet.setColumnWidth(5, 95);
+  sheet.setColumnWidth(6, 180);
+  sheet.setColumnWidth(7, 110);
+  sheet.setColumnWidth(8, 280);
+  sheet.setColumnWidth(9, 170);
 
   return sheet;
 }
@@ -396,6 +412,10 @@ function doPost(e) {
       return handleSaveTeachers(payload);
     }
 
+    if (action === "updateTeacherPassword") {
+      return handleUpdateTeacherPassword(payload);
+    }
+
     if (action === "updateSystemControl" || action === "saveSystemControl" || action === "saveSchoolConfig") {
       return handleSaveSchoolConfig(payload);
     }
@@ -567,25 +587,101 @@ function getTeachersData(ss) {
     return { accounts: [], allotments: [] };
   }
 
+  var headerRow = data[0].map(function(h) { return String(h || "").trim().toLowerCase(); });
+  var idCol = headerRow.indexOf("teacher id");
+  if (idCol === -1) idCol = 0;
+
+  var passCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("password") !== -1 || headerRow[h].indexOf("pin") !== -1) {
+      passCol = h;
+      break;
+    }
+  }
+
+  var nameCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("teacher name") !== -1 || headerRow[h] === "name") {
+      nameCol = h;
+      break;
+    }
+  }
+  if (nameCol === -1) nameCol = (passCol === 1 ? 2 : 1);
+
+  var contactCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("contact") !== -1 || headerRow[h].indexOf("mobile") !== -1 || headerRow[h].indexOf("phone") !== -1) {
+      contactCol = h;
+      break;
+    }
+  }
+  if (contactCol === -1) contactCol = (passCol === 1 ? 3 : 2);
+
+  var statusCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("status") !== -1) {
+      statusCol = h;
+      break;
+    }
+  }
+  if (statusCol === -1) statusCol = (passCol === 1 ? 4 : 3);
+
+  var classesCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("class") !== -1) {
+      classesCol = h;
+      break;
+    }
+  }
+  if (classesCol === -1) classesCol = (passCol === 1 ? 5 : 4);
+
+  var sectionsCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("section") !== -1) {
+      sectionsCol = h;
+      break;
+    }
+  }
+  if (sectionsCol === -1) sectionsCol = (passCol === 1 ? 6 : 5);
+
+  var subjectsCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("subject") !== -1) {
+      subjectsCol = h;
+      break;
+    }
+  }
+  if (subjectsCol === -1) subjectsCol = (passCol === 1 ? 7 : 6);
+
+  var updatedCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("updated") !== -1 || headerRow[h].indexOf("date") !== -1) {
+      updatedCol = h;
+      break;
+    }
+  }
+  if (updatedCol === -1) updatedCol = (passCol === 1 ? 8 : 7);
+
   var seenTeacherIds = {};
   var accounts = [];
   var allotments = [];
 
   for (var r = 1; r < data.length; r++) {
     var row = data[r];
-    var teacherId = String(row[0] || "").trim();
-    var teacherName = String(row[1] || "").trim();
+    var teacherId = String(row[idCol] || "").trim();
+    var teacherName = String(row[nameCol] || "").trim();
     if (!teacherId && !teacherName) continue;
 
     var cleanId = teacherId || ("TCH_" + r);
-    var contact = String(row[2] || "").trim();
-    var statusStr = String(row[3] || "ACTIVE").trim().toUpperCase();
+    var password = (passCol !== -1 && String(row[passCol] || "").trim()) ? String(row[passCol]).trim() : "123456";
+    var contact = String(row[contactCol] || "").trim();
+    var statusStr = String(row[statusCol] || "ACTIVE").trim().toUpperCase();
     var active = statusStr !== "INACTIVE" && statusStr !== "FALSE";
 
-    var classesRaw = String(row[4] || "").trim();
-    var sectionsRaw = String(row[5] || "").trim();
-    var subjectsRaw = String(row[6] || "").trim();
-    var lastUpdated = String(row[7] || "").trim();
+    var classesRaw = String(row[classesCol] || "").trim();
+    var sectionsRaw = String(row[sectionsCol] || "").trim();
+    var subjectsRaw = String(row[subjectsCol] || "").trim();
+    var lastUpdated = String(row[updatedCol] || "").trim();
 
     if (!seenTeacherIds[cleanId]) {
       seenTeacherIds[cleanId] = true;
@@ -593,6 +689,7 @@ function getTeachersData(ss) {
         id: "tch_acc_" + cleanId.replace(/[^a-zA-Z0-9]/g, "_"),
         teacherId: cleanId,
         teacherName: teacherName,
+        password: password,
         contact: contact,
         active: active,
         updatedAt: lastUpdated || new Date().toISOString()
@@ -651,9 +748,20 @@ function handleSaveTeachers(payload) {
   var accounts = payload.teacherAccounts || payload.accounts || [];
   var allotments = payload.teacherAllotments || payload.allotments || [];
 
+  var data = sheet.getDataRange().getValues();
+  if (data.length > 0) {
+    var headerRow = data[0].map(function(h) { return String(h || "").trim().toLowerCase(); });
+    var hasPassword = headerRow.some(function(h) { return h.indexOf("password") !== -1 || h.indexOf("pin") !== -1; });
+    if (!hasPassword) {
+      sheet.insertColumnAfter(1);
+      sheet.getRange(1, 2).setValue("Password");
+    }
+  }
+
   var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn() >= 9 ? sheet.getLastColumn() : 9;
   if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
   }
 
   if (accounts.length === 0) {
@@ -672,6 +780,8 @@ function handleSaveTeachers(payload) {
     var tId = (acc.teacherId || "").trim();
     var tName = (acc.teacherName || "").trim();
     if (!tId && !tName) return;
+
+    var password = (acc.password && String(acc.password).trim()) ? String(acc.password).trim() : "123456";
 
     var teacherAllots = allotments.filter(function(a) {
       return (a.teacherId && a.teacherId.trim().toUpperCase() === tId.toUpperCase()) ||
@@ -694,6 +804,7 @@ function handleSaveTeachers(payload) {
 
     rowsToWrite.push([
       tId,
+      password,
       tName,
       acc.contact || "",
       acc.active !== false ? "ACTIVE" : "INACTIVE",
@@ -705,10 +816,10 @@ function handleSaveTeachers(payload) {
   });
 
   if (rowsToWrite.length > 0) {
-    sheet.getRange(2, 1, rowsToWrite.length, 8).setValues(rowsToWrite);
-    sheet.getRange(2, 1, rowsToWrite.length, 8).setHorizontalAlignment("center");
-    sheet.getRange(2, 2, rowsToWrite.length, 1).setHorizontalAlignment("left");
-    sheet.getRange(2, 7, rowsToWrite.length, 1).setHorizontalAlignment("left");
+    sheet.getRange(2, 1, rowsToWrite.length, 9).setValues(rowsToWrite);
+    sheet.getRange(2, 1, rowsToWrite.length, 9).setHorizontalAlignment("center");
+    sheet.getRange(2, 3, rowsToWrite.length, 1).setHorizontalAlignment("left");
+    sheet.getRange(2, 8, rowsToWrite.length, 1).setHorizontalAlignment("left");
   }
 
   logAuditEvent("Admin", "ADMIN", "SAVE_TEACHERS", "ALL", "TEACHERS", rowsToWrite.length, "SUCCESS", "Synchronized " + rowsToWrite.length + " teachers to _TEACHERS tab.");
@@ -719,6 +830,85 @@ function handleSaveTeachers(payload) {
     savedCount: rowsToWrite.length,
     message: "Successfully synchronized " + rowsToWrite.length + " teacher accounts to Google Sheet (_TEACHERS)."
   });
+}
+
+function handleUpdateTeacherPassword(payload) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("_TEACHERS") || setupTeachersSheet(ss);
+
+  var targetId = String(payload.teacherId || "").trim().toUpperCase();
+  var newPassword = String(payload.newPassword || "").trim();
+
+  if (!targetId || !newPassword) {
+    return jsonResponse({
+      status: "error",
+      success: false,
+      message: "Teacher ID and New Password are required."
+    });
+  }
+
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) {
+    return jsonResponse({
+      status: "error",
+      success: false,
+      message: "No teachers found in _TEACHERS sheet."
+    });
+  }
+
+  var headerRow = data[0].map(function(h) { return String(h || "").trim().toLowerCase(); });
+  var idCol = headerRow.indexOf("teacher id");
+  if (idCol === -1) idCol = 0;
+
+  var passCol = -1;
+  for (var h = 0; h < headerRow.length; h++) {
+    if (headerRow[h].indexOf("password") !== -1 || headerRow[h].indexOf("pin") !== -1) {
+      passCol = h;
+      break;
+    }
+  }
+
+  if (passCol === -1) {
+    sheet.insertColumnAfter(1);
+    sheet.getRange(1, 2).setValue("Password");
+    passCol = 1;
+  }
+
+  var updated = false;
+  for (var r = 1; r < data.length; r++) {
+    var curId = String(data[r][idCol] || "").trim().toUpperCase();
+    if (curId === targetId) {
+      sheet.getRange(r + 1, passCol + 1).setValue(newPassword);
+      var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "GMT+5:30", "yyyy-MM-dd HH:mm");
+      var updatedCol = -1;
+      for (var u = 0; u < headerRow.length; u++) {
+        if (headerRow[u].indexOf("updated") !== -1) {
+          updatedCol = u;
+          break;
+        }
+      }
+      if (updatedCol !== -1) {
+        sheet.getRange(r + 1, updatedCol + 1).setValue(nowStr);
+      }
+      updated = true;
+      break;
+    }
+  }
+
+  if (updated) {
+    logAuditEvent("Teacher", targetId, "UPDATE_PASSWORD", "TEACHERS", targetId, 1, "SUCCESS", "Teacher " + targetId + " updated their password.");
+    return jsonResponse({
+      status: "success",
+      success: true,
+      message: "Password for Teacher " + targetId + " updated successfully in Google Sheet (_TEACHERS)."
+    });
+  } else {
+    return jsonResponse({
+      status: "error",
+      success: false,
+      message: "Teacher ID " + targetId + " not found in _TEACHERS sheet."
+    });
+  }
 }
 
 function handleGetStudents(targetClass) {

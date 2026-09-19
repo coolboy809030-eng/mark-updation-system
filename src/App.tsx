@@ -68,8 +68,14 @@ import {
   hasTeacherPermission,
   getTeacherAuthorizedClasses,
   getTeacherAuthorizedSections,
-  getTeacherAuthorizedSubjects
+  getTeacherAuthorizedSubjects,
+  getTeacherSession,
+  clearTeacherSession,
+  getTeacherById
 } from './utils/teacherAccount';
+import { TeacherLoginModal } from './components/teacher/TeacherLoginModal';
+import { TeacherForgotPasswordModal } from './components/teacher/TeacherForgotPasswordModal';
+import { TeacherChangePasswordModal } from './components/teacher/TeacherChangePasswordModal';
 import { getEffectiveGasUrl } from './config/appConfig';
 import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from './services/teacherSyncService';
 import { fetchSchoolConfigFromGAS, saveSchoolConfigToGAS } from './services/schoolConfigService';
@@ -82,7 +88,11 @@ import {
   Settings,
   UserCheck,
   BookOpen,
-  Shield
+  Shield,
+  KeyRound,
+  LogIn,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 const SETTINGS_STORAGE_KEY = 'pis_markupdation_settings_v1';
@@ -728,6 +738,31 @@ export default function App() {
     );
   }, [teacherAccounts, selectedTeacherId]);
 
+  // ------------------------------------------------------------
+  // TEACHER AUTHENTICATION STATE & MODALS
+  // ------------------------------------------------------------
+  const [authenticatedTeacher, setAuthenticatedTeacher] = useState<TeacherAccount | null>(() => {
+    const session = getTeacherSession();
+    if (!session) return null;
+    return getTeacherById(session.teacherId) || null;
+  });
+
+  const [isTeacherLoginOpen, setIsTeacherLoginOpen] = useState<boolean>(false);
+  const [isTeacherForgotPasswordOpen, setIsTeacherForgotPasswordOpen] = useState<boolean>(false);
+  const [isTeacherChangePasswordOpen, setIsTeacherChangePasswordOpen] = useState<boolean>(false);
+  const [initialTeacherLoginId, setInitialTeacherLoginId] = useState<string>(() => {
+    return searchParams.get('teacherId') || searchParams.get('teacher') || searchParams.get('tid') || '';
+  });
+
+  // Prompt login if teacher portal is accessed without session
+  useEffect(() => {
+    if (isTeacherPortal && !authenticatedTeacher) {
+      if (selectedTeacherId || initialTeacherLoginId) {
+        setIsTeacherLoginOpen(true);
+      }
+    }
+  }, [isTeacherPortal, authenticatedTeacher, selectedTeacherId, initialTeacherLoginId]);
+
   const approvedCorrections = useMemo(() => correctionRequests.filter(request =>
     request.status === 'Approved' &&
     request.teacherId === selectedTeacherId &&
@@ -900,21 +935,76 @@ export default function App() {
   const handleTeacherChange = (
     teacherId: string
   ) => {
-    setSelectedTeacherId(teacherId);
+    if (!teacherId) {
+      setSelectedTeacherId('');
+      try {
+        localStorage.removeItem('pis_active_teacher_id');
+      } catch {}
+      setSelectedClass('');
+      setSelectedSection('');
+      setSelectedSubject('');
+      setStudents([]);
+      setValues({});
+      setSavedBackendMarks({});
+      setMarkVisualStates({});
+      return;
+    }
 
+    // If currently authenticated as this teacher, switch freely
+    if (authenticatedTeacher?.teacherId === teacherId) {
+      setSelectedTeacherId(teacherId);
+      try {
+        localStorage.setItem('pis_active_teacher_id', teacherId);
+      } catch {}
+      setSelectedClass('');
+      setSelectedSection('');
+      setSelectedSubject('');
+      setStudents([]);
+      setValues({});
+      setSavedBackendMarks({});
+      setMarkVisualStates({});
+      return;
+    }
+
+    // If not authenticated as this teacher, prompt for login
+    setInitialTeacherLoginId(teacherId);
+    setIsTeacherLoginOpen(true);
+  };
+
+  const handleTeacherLoginSuccess = (teacher: TeacherAccount) => {
+    setAuthenticatedTeacher(teacher);
+    setSelectedTeacherId(teacher.teacherId);
     try {
-      if (teacherId) {
-        localStorage.setItem(
-          'pis_active_teacher_id',
-          teacherId
-        );
-      } else {
-        localStorage.removeItem(
-          'pis_active_teacher_id'
-        );
-      }
+      localStorage.setItem('pis_active_teacher_id', teacher.teacherId);
     } catch {}
+    setIsTeacherLoginOpen(false);
 
+    // Keep teacherAccounts in sync
+    setTeacherAccounts(prev => {
+      const idx = prev.findIndex(t => t.teacherId === teacher.teacherId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = teacher;
+        return next;
+      }
+      return prev;
+    });
+
+    if (teacher.mustChangePassword) {
+      setIsTeacherChangePasswordOpen(true);
+      showNotification('warning', `⚠️ कृपया पहला लॉगिन पूरा करने के लिए अपना नया सुरक्षित पासवर्ड सेट करें!`);
+    } else {
+      showNotification('success', `✅ शिक्षक ${teacher.teacherName} (${teacher.teacherId}) सफलतापूर्वक लॉगिन हुए!`);
+    }
+  };
+
+  const handleTeacherLogout = () => {
+    clearTeacherSession();
+    setAuthenticatedTeacher(null);
+    setSelectedTeacherId('');
+    try {
+      localStorage.removeItem('pis_active_teacher_id');
+    } catch {}
     setSelectedClass('');
     setSelectedSection('');
     setSelectedSubject('');
@@ -922,6 +1012,16 @@ export default function App() {
     setValues({});
     setSavedBackendMarks({});
     setMarkVisualStates({});
+    showNotification('info', 'शिक्षक सत्र सुरक्षित रूप से समाप्त हो गया है।');
+  };
+
+  const handleTeacherChangePasswordSuccess = (updatedTeacher: TeacherAccount) => {
+    setAuthenticatedTeacher(updatedTeacher);
+    setIsTeacherChangePasswordOpen(false);
+    setTeacherAccounts(prev =>
+      prev.map(t => t.teacherId === updatedTeacher.teacherId ? updatedTeacher : t)
+    );
+    showNotification('success', '✅ आपका नया पासवर्ड सुरक्षित रूप से बदल गया है और Google Sheet में अपडेट हो गया है!');
   };
 
   const handleSelectClass = (
@@ -1133,6 +1233,14 @@ export default function App() {
         !isPermissionValid
       ) {
         setStudents([]);
+        return;
+      }
+
+      // Check authentication gate for Teacher Portal
+      if (isTeacherPortal && !authenticatedTeacher) {
+        showNotification('warning', 'कृपया छात्र अंक प्रविष्टि हेतु पहले शिक्षक लॉगिन करें!');
+        setInitialTeacherLoginId(selectedTeacherId);
+        setIsTeacherLoginOpen(true);
         return;
       }
 
@@ -2160,9 +2268,46 @@ export default function App() {
           'OFF'
         }
         isTeacherPortal={isTeacherPortal}
+        authenticatedTeacher={authenticatedTeacher}
+        onOpenTeacherLogin={() => {
+          setInitialTeacherLoginId(selectedTeacherId);
+          setIsTeacherLoginOpen(true);
+        }}
+        onOpenTeacherChangePassword={() => setIsTeacherChangePasswordOpen(true)}
+        onTeacherLogout={handleTeacherLogout}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
+
+        {/* Teacher Portal Unauthenticated Banner */}
+        {isTeacherPortal && !authenticatedTeacher && (
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 text-xs text-emerald-950 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800 shrink-0">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-emerald-950">
+                  शिक्षक प्रमाणीकरण आवश्यक (Teacher Authentication Required)
+                </p>
+                <p className="text-[11px] text-emerald-700">
+                  अंक व उपस्थिति दर्ज करने के लिए अपना Teacher ID और पासवर्ड डालकर लॉगिन करें। (डिफ़ॉल्ट पासवर्ड: <span className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-900">123456</span>)
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setInitialTeacherLoginId(selectedTeacherId);
+                setIsTeacherLoginOpen(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shrink-0 flex items-center gap-1.5 shadow-sm hover:shadow-md cursor-pointer transition-all"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>शिक्षक लॉगिन करें (Login)</span>
+            </button>
+          </div>
+        )}
 
         {isAdminAuthenticatedFlag && !isTeacherPortal && (
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl p-3.5 px-4 text-xs flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md border border-indigo-700/50">
@@ -2420,6 +2565,13 @@ export default function App() {
           isPermissionValid={
             isPermissionValid
           }
+          authenticatedTeacher={authenticatedTeacher}
+          onOpenTeacherLogin={() => {
+            setInitialTeacherLoginId(selectedTeacherId);
+            setIsTeacherLoginOpen(true);
+          }}
+          onOpenTeacherChangePassword={() => setIsTeacherChangePasswordOpen(true)}
+          onTeacherLogout={handleTeacherLogout}
         />
 
         {/* Teacher workflow */}
@@ -2946,6 +3098,40 @@ export default function App() {
           adminPin
         }
       />
+
+      {/* Teacher Authentication Modals */}
+      <TeacherLoginModal
+        isOpen={isTeacherLoginOpen}
+        onClose={() => setIsTeacherLoginOpen(false)}
+        onSuccess={handleTeacherLoginSuccess}
+        onForgotPassword={() => {
+          setIsTeacherLoginOpen(false);
+          setIsTeacherForgotPasswordOpen(true);
+        }}
+        teacherAccounts={teacherAccounts}
+        initialTeacherId={initialTeacherLoginId || selectedTeacherId}
+      />
+
+      <TeacherForgotPasswordModal
+        isOpen={isTeacherForgotPasswordOpen}
+        onClose={() => setIsTeacherForgotPasswordOpen(false)}
+        onBackToLogin={() => {
+          setIsTeacherForgotPasswordOpen(false);
+          setIsTeacherLoginOpen(true);
+        }}
+        teacherAccounts={teacherAccounts}
+        initialTeacherId={initialTeacherLoginId || selectedTeacherId}
+      />
+
+      {authenticatedTeacher && (
+        <TeacherChangePasswordModal
+          isOpen={isTeacherChangePasswordOpen}
+          onClose={() => setIsTeacherChangePasswordOpen(false)}
+          onSuccess={handleTeacherChangePasswordSuccess}
+          teacher={authenticatedTeacher}
+          databaseUrl={settings.googleSheetApiUrl}
+        />
+      )}
     </div>
   );
 }

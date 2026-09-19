@@ -1,4 +1,4 @@
-import { TeacherAccount, TeacherAllotment } from '../types';
+import { TeacherAccount, TeacherAllotment, PasswordResetRequest } from '../types';
 
 /**
  * MODULE 3A — TEACHER ACCOUNT FOUNDATION
@@ -15,6 +15,9 @@ import { TeacherAccount, TeacherAllotment } from '../types';
 
 export const TEACHER_ACCOUNTS_STORAGE_KEY = 'pis_teacher_accounts_v1';
 export const TEACHER_ALLOTMENTS_STORAGE_KEY = 'pis_teacher_allotments_v1';
+export const TEACHER_SESSION_STORAGE_KEY = 'pis_teacher_auth_session_v1';
+export const TEACHER_RESET_REQUESTS_KEY = 'pis_teacher_reset_requests_v1';
+export const DEFAULT_TEACHER_PASSWORD = '123456';
 
 /**
  * Generates next unique Teacher ID in the standard format:
@@ -138,14 +141,19 @@ export function loadTeacherAccounts(): TeacherAccount[] {
     console.warn('Teacher legacy allotment migration notice:', migrErr);
   }
 
-  // Deduplicate accounts by teacherId or id
+  // Deduplicate accounts by teacherId or id and ensure default password
   const seenAccKeys = new Set<string>();
   const dedupedAccounts: TeacherAccount[] = [];
   for (const acc of accounts) {
     const rawKey = (acc.teacherId || acc.id || '').trim().toUpperCase();
     if (!rawKey || !seenAccKeys.has(rawKey)) {
       if (rawKey) seenAccKeys.add(rawKey);
-      dedupedAccounts.push(acc);
+      dedupedAccounts.push({
+        ...acc,
+        password: (acc.password && acc.password.trim()) ? acc.password.trim() : DEFAULT_TEACHER_PASSWORD,
+        mustChangePassword: acc.mustChangePassword ?? false,
+        resetRequested: acc.resetRequested ?? false
+      });
     }
   }
 
@@ -444,6 +452,381 @@ export function getTeacherAuthorizedSubjects(
     }
   }
   return Array.from(subjects);
+}
+
+/**
+ * ============================================================
+ * MODULE 3D — TEACHER CREDENTIAL AUTHENTICATION & LOCKING SYSTEM
+ * ============================================================
+ */
+
+/**
+ * Verifies teacher login credentials (by Teacher ID or Contact Number).
+ */
+export function verifyTeacherLogin(
+  teacherIdOrContact: string,
+  passwordInput: string
+): { success: boolean; teacher?: TeacherAccount; error?: string } {
+  if (!teacherIdOrContact || !teacherIdOrContact.trim()) {
+    return { success: false, error: 'कृपया अपना Teacher ID या मोबाइल नंबर दर्ज करें।' };
+  }
+  if (!passwordInput || !passwordInput.trim()) {
+    return { success: false, error: 'कृपया पासवर्ड या पिन दर्ज करें।' };
+  }
+
+  const accounts = loadTeacherAccounts();
+  const cleanInput = teacherIdOrContact.trim().toUpperCase();
+  const cleanDigits = teacherIdOrContact.replace(/\D/g, '');
+
+  const matched = accounts.find(acc => {
+    const accTId = (acc.teacherId || '').trim().toUpperCase();
+    if (accTId === cleanInput) return true;
+
+    if (acc.contact) {
+      const accContactDigits = acc.contact.replace(/\D/g, '');
+      if (cleanDigits.length >= 10 && accContactDigits.endsWith(cleanDigits)) return true;
+    }
+    return false;
+  });
+
+  if (!matched) {
+    return {
+      success: false,
+      error: `शिक्षक खाता "${teacherIdOrContact}" नहीं मिला। कृपया अपना सही Teacher ID (उदा. TCH-2026-001) या पंजीकृत मोबाइल नंबर जांचें।`
+    };
+  }
+
+  if (matched.active === false) {
+    return {
+      success: false,
+      error: 'यह शिक्षक खाता वर्तमान में निष्क्रिय (Inactive) है। कृपया स्कूल एडमिन से संपर्क करें।'
+    };
+  }
+
+  const expectedPassword = (matched.password && matched.password.trim())
+    ? matched.password.trim()
+    : DEFAULT_TEACHER_PASSWORD;
+
+  if (passwordInput.trim() !== expectedPassword) {
+    return {
+      success: false,
+      error: 'गलत पासवर्ड / पिन! यदि आप पासवर्ड भूल गए हैं, तो "Forgot Password" पर क्लिक करके एडमिन को रीसेट अनुरोध भेजें।'
+    };
+  }
+
+  // Update last login timestamp
+  const updatedAccount: TeacherAccount = {
+    ...matched,
+    lastLoginAt: new Date().toISOString()
+  };
+
+  const updatedList = accounts.map(a => a.id === matched.id ? updatedAccount : a);
+  saveTeacherAccounts(updatedList);
+  setTeacherSession(updatedAccount);
+
+  return {
+    success: true,
+    teacher: updatedAccount
+  };
+}
+
+/**
+ * Gets currently logged in teacher from session.
+ */
+export function getTeacherSession(): TeacherAccount | null {
+  try {
+    const raw = sessionStorage.getItem(TEACHER_SESSION_STORAGE_KEY) || localStorage.getItem(TEACHER_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.teacherId) return null;
+
+    // Refresh from accounts store to get latest active status & password flag
+    const accounts = loadTeacherAccounts();
+    const fresh = accounts.find(a => (a.teacherId || '').toUpperCase() === (parsed.teacherId || '').toUpperCase());
+    if (fresh) {
+      if (fresh.active === false) {
+        clearTeacherSession();
+        return null;
+      }
+      return fresh;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Saves current teacher session.
+ */
+export function setTeacherSession(account: TeacherAccount | null): void {
+  try {
+    if (!account) {
+      sessionStorage.removeItem(TEACHER_SESSION_STORAGE_KEY);
+      localStorage.removeItem(TEACHER_SESSION_STORAGE_KEY);
+    } else {
+      const serialized = JSON.stringify(account);
+      sessionStorage.setItem(TEACHER_SESSION_STORAGE_KEY, serialized);
+      localStorage.setItem(TEACHER_SESSION_STORAGE_KEY, serialized);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('teacher_session_changed', {
+        detail: { teacher: account }
+      }));
+    }
+  } catch (err) {
+    console.error('Failed to set teacher session', err);
+  }
+}
+
+/**
+ * Clears teacher session (logout).
+ */
+export function clearTeacherSession(): void {
+  setTeacherSession(null);
+}
+
+/**
+ * Checks if teacher is currently authenticated.
+ */
+export function isTeacherAuthenticated(): boolean {
+  const sess = getTeacherSession();
+  return Boolean(sess && sess.teacherId && sess.active !== false);
+}
+
+/**
+ * Teacher updates their own password (e.g., on first login or voluntarily).
+ */
+export function updateTeacherPassword(
+  teacherId: string,
+  newPassword: string
+): { success: boolean; message: string; teacher?: TeacherAccount } {
+  if (!teacherId || !teacherId.trim()) {
+    return { success: false, message: 'अमान्य शिक्षक आईडी।' };
+  }
+  if (!newPassword || newPassword.trim().length < 4) {
+    return { success: false, message: 'नया पासवर्ड कम से कम 4 अक्षरों या अंकों का होना चाहिए।' };
+  }
+
+  const cleanId = teacherId.trim().toUpperCase();
+  const accounts = loadTeacherAccounts();
+  const idx = accounts.findIndex(a => (a.teacherId || '').trim().toUpperCase() === cleanId);
+
+  if (idx === -1) {
+    return { success: false, message: `शिक्षक आईडी ${teacherId} नहीं मिला।` };
+  }
+
+  const updatedTeacher: TeacherAccount = {
+    ...accounts[idx],
+    password: newPassword.trim(),
+    mustChangePassword: false,
+    resetRequested: false,
+    resetRequestedAt: undefined,
+    resetRequestNote: undefined,
+    updatedAt: new Date().toISOString()
+  };
+
+  accounts[idx] = updatedTeacher;
+  saveTeacherAccounts(accounts);
+  setTeacherSession(updatedTeacher);
+
+  // Mark any pending reset requests for this teacher as RESOLVED
+  const requests = loadPasswordResetRequests();
+  const updatedReqs = requests.map(r => {
+    if (r.teacherId.toUpperCase() === cleanId && r.status === 'PENDING') {
+      return { ...r, status: 'RESOLVED' as const, resolvedAt: new Date().toISOString() };
+    }
+    return r;
+  });
+  savePasswordResetRequests(updatedReqs);
+
+  return {
+    success: true,
+    message: 'नया पासवर्ड सफलतापूर्वक सहेजा गया और सक्रिय किया गया!',
+    teacher: updatedTeacher
+  };
+}
+
+/**
+ * Admin resets a teacher's password to default PIN (e.g., 123456).
+ * Sets mustChangePassword: true so teacher is prompted to create a new one on login.
+ */
+export function adminResetTeacherPassword(
+  teacherId: string,
+  customDefaultPin: string = DEFAULT_TEACHER_PASSWORD
+): { success: boolean; message: string; defaultPin: string; teacher?: TeacherAccount } {
+  if (!teacherId || !teacherId.trim()) {
+    return { success: false, message: 'अमान्य शिक्षक आईडी।', defaultPin: customDefaultPin };
+  }
+
+  const cleanId = teacherId.trim().toUpperCase();
+  const accounts = loadTeacherAccounts();
+  const idx = accounts.findIndex(a => (a.teacherId || '').trim().toUpperCase() === cleanId);
+
+  if (idx === -1) {
+    return { success: false, message: `शिक्षक खाता ${teacherId} नहीं मिला।`, defaultPin: customDefaultPin };
+  }
+
+  const effectivePin = (customDefaultPin && customDefaultPin.trim())
+    ? customDefaultPin.trim()
+    : DEFAULT_TEACHER_PASSWORD;
+
+  const updatedTeacher: TeacherAccount = {
+    ...accounts[idx],
+    password: effectivePin,
+    mustChangePassword: true, // Force teacher to set new password on next login
+    resetRequested: false,
+    updatedAt: new Date().toISOString()
+  };
+
+  accounts[idx] = updatedTeacher;
+  saveTeacherAccounts(accounts);
+
+  // If teacher is currently logged in locally, update their session
+  const currentSession = getTeacherSession();
+  if (currentSession && (currentSession.teacherId || '').toUpperCase() === cleanId) {
+    setTeacherSession(updatedTeacher);
+  }
+
+  // Resolve pending reset requests
+  const requests = loadPasswordResetRequests();
+  const updatedReqs = requests.map(r => {
+    if (r.teacherId.toUpperCase() === cleanId && r.status === 'PENDING') {
+      return { ...r, status: 'RESOLVED' as const, resolvedAt: new Date().toISOString() };
+    }
+    return r;
+  });
+  savePasswordResetRequests(updatedReqs);
+
+  return {
+    success: true,
+    message: `शिक्षक ${updatedTeacher.teacherName} का पासवर्ड डिफ़ॉल्ट "${effectivePin}" पर रीसेट कर दिया गया है।`,
+    defaultPin: effectivePin,
+    teacher: updatedTeacher
+  };
+}
+
+/**
+ * Teacher requests a password reset from Admin.
+ */
+export function requestTeacherPasswordReset(
+  teacherIdOrContact: string,
+  note?: string
+): { success: boolean; message: string; teacherId?: string } {
+  if (!teacherIdOrContact || !teacherIdOrContact.trim()) {
+    return { success: false, message: 'कृपया अपना Teacher ID या मोबाइल नंबर दर्ज करें।' };
+  }
+
+  const accounts = loadTeacherAccounts();
+  const cleanInput = teacherIdOrContact.trim().toUpperCase();
+  const cleanDigits = teacherIdOrContact.replace(/\D/g, '');
+
+  const matched = accounts.find(acc => {
+    const accTId = (acc.teacherId || '').trim().toUpperCase();
+    if (accTId === cleanInput) return true;
+    if (acc.contact) {
+      const accContactDigits = acc.contact.replace(/\D/g, '');
+      if (cleanDigits.length >= 10 && accContactDigits.endsWith(cleanDigits)) return true;
+    }
+    return false;
+  });
+
+  if (!matched) {
+    return {
+      success: false,
+      message: `शिक्षक खाता "${teacherIdOrContact}" नहीं मिला। कृपया सही Teacher ID (उदा. TCH-2026-001) या स्कूल में पंजीकृत नंबर जांचें।`
+    };
+  }
+
+  // Update account with resetRequested flag
+  const updatedAccounts = accounts.map(a => {
+    if (a.id === matched.id) {
+      return {
+        ...a,
+        resetRequested: true,
+        resetRequestedAt: new Date().toISOString(),
+        resetRequestNote: note || 'शिक्षक द्वारा पासवर्ड रीसेट का अनुरोध किया गया।'
+      };
+    }
+    return a;
+  });
+  saveTeacherAccounts(updatedAccounts);
+
+  // Add to Password Reset Requests queue
+  const requests = loadPasswordResetRequests();
+  const newRequest: PasswordResetRequest = {
+    id: `req_pwd_${Date.now()}_${matched.teacherId}`,
+    teacherId: matched.teacherId,
+    teacherName: matched.teacherName,
+    contact: matched.contact,
+    requestedAt: new Date().toISOString(),
+    note: note || 'शिक्षक द्वारा पासवर्ड रीसेट का अनुरोध।',
+    status: 'PENDING'
+  };
+
+  savePasswordResetRequests([newRequest, ...requests]);
+
+  return {
+    success: true,
+    teacherId: matched.teacherId,
+    message: `पासवर्ड रीसेट अनुरोध दर्ज कर लिया गया है! एडमिन द्वारा आपका पासवर्ड डिफ़ॉल्ट (${DEFAULT_TEACHER_PASSWORD}) पर रीसेट किया जाएगा। कृपया एडमिन से संपर्क करें।`
+  };
+}
+
+/**
+ * Loads all password reset requests.
+ */
+export function loadPasswordResetRequests(): PasswordResetRequest[] {
+  try {
+    const raw = localStorage.getItem(TEACHER_RESET_REQUESTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Saves password reset requests to localStorage.
+ */
+export function savePasswordResetRequests(requests: PasswordResetRequest[]): void {
+  try {
+    localStorage.setItem(TEACHER_RESET_REQUESTS_KEY, JSON.stringify(requests));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('teacher_reset_requests_updated', {
+        detail: { requests }
+      }));
+    }
+  } catch (err) {
+    console.error('Failed to save password reset requests', err);
+  }
+}
+
+/**
+ * Gets a teacher account by their teacherId.
+ */
+export function getTeacherById(teacherId: string): TeacherAccount | null {
+  if (!teacherId) return null;
+  const accounts = loadTeacherAccounts();
+  const cleanId = teacherId.trim().toUpperCase();
+  return accounts.find(a => (a.teacherId || '').trim().toUpperCase() === cleanId) || null;
+}
+
+/**
+ * Gets all pending password reset requests.
+ */
+export function getPendingPasswordResetRequests(): PasswordResetRequest[] {
+  return loadPasswordResetRequests().filter(r => r.status === 'PENDING');
+}
+
+/**
+ * Dismisses a password reset request without resetting.
+ */
+export function dismissPasswordResetRequest(requestId: string): void {
+  const requests = loadPasswordResetRequests();
+  const updated = requests.map(r => r.id === requestId ? { ...r, status: 'DISMISSED' as const } : r);
+  savePasswordResetRequests(updated);
 }
 
 
