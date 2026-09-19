@@ -10,7 +10,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenGuide: () => void;
   entryType: 'marks' | 'attendance' | null;
-  onOpenAdminLogin: () => void;
+  onOpenAdminLogin?: () => void;
   isAdminSessionActive?: boolean;
   onSwitchToResultGenerator?: () => void;
   isSystemLocked?: boolean;
@@ -108,8 +108,8 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* PIS Data Base Status Badge & Settings (Visible ONLY to Admin) */}
-            {isAdminSessionActive && (
+            {/* PIS Data Base Status Badge & Settings (Visible ONLY to Admin when NOT in teacher portal) */}
+            {isAdminSessionActive && !isTeacherPortal && (
               <>
                 <button
                   onClick={onOpenSettings}
@@ -144,8 +144,8 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Rules</span>
             </button>
 
-            {/* Admin Controls (Visible ONLY when Admin Session is Authenticated) */}
-            {isAdminSessionActive ? (
+            {/* Admin Controls (Visible ONLY when Admin Session is Authenticated and NOT in teacher portal) */}
+            {isAdminSessionActive && !isTeacherPortal && (
               <>
                 {onSwitchToResultGenerator && (
                   <button
@@ -168,17 +168,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Admin Controls</span>
                 </button>
               </>
-            ) : (
-              !isTeacherPortal && (
-                <button
-                  onClick={onOpenAdminLogin}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="Examination Admin Login"
-                >
-                  <Shield className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Admin Login</span>
-                </button>
-              )
             )}
           </div>
 

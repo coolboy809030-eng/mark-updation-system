@@ -33,7 +33,8 @@ import {
   UserPlus,
   Cloud,
   CloudUpload,
-  CloudDownload
+  CloudDownload,
+  Link2
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -134,6 +135,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [teacherContactInput, setTeacherContactInput] = useState('');
   const [teacherActiveInput, setTeacherActiveInput] = useState(true);
   const [teacherAccountDiag, setTeacherAccountDiag] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [copiedTeacherId, setCopiedTeacherId] = useState<string | null>(null);
+
+  const handleCopyPersonalTeacherLink = (tId: string) => {
+    const base = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
+    const personalUrl = `${base}?portal=teacher&teacherId=${encodeURIComponent(tId)}`;
+    navigator.clipboard.writeText(personalUrl);
+    setCopiedTeacherId(tId);
+    setTimeout(() => setCopiedTeacherId(null), 2500);
+  };
 
   // Sync teacherIdInput if accounts change and not editing
   useEffect(() => {
@@ -1132,6 +1142,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
+                            {/* Copy Personal Teacher URL */}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPersonalTeacherLink(acc.teacherId)}
+                              className={`px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-medium border ${
+                                copiedTeacherId === acc.teacherId
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : 'bg-slate-50 text-slate-700 hover:text-emerald-800 hover:bg-emerald-50 border-slate-200'
+                              }`}
+                              title="व्यक्तिगत टीचर पोर्टल लिंक कॉपी करें (बिना एडमिन एक्सेस के)"
+                            >
+                              {copiedTeacherId === acc.teacherId ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Link2 className="w-3 h-3 text-emerald-700" />
+                              )}
+                              <span>
+                                {copiedTeacherId === acc.teacherId ? 'Copied' : 'Personal Link'}
+                              </span>
+                            </button>
+
                             {/* Active/Inactive Toggle Button */}
                             <button
                               type="button"

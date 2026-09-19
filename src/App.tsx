@@ -103,7 +103,10 @@ export default function App() {
 
   const isExplicitTeacher =
     searchParams.get('portal') === 'teacher' ||
-    searchParams.get('mode') === 'teacher';
+    searchParams.get('mode') === 'teacher' ||
+    Boolean(searchParams.get('teacherId')) ||
+    Boolean(searchParams.get('teacher')) ||
+    Boolean(searchParams.get('tid'));
 
   const isExplicitAdmin =
     searchParams.get('portal') === 'admin' ||
@@ -222,6 +225,30 @@ export default function App() {
 
     setIsAdminLoginOpen(true);
   };
+
+  // Discreet shortcut for Examination Administrator (Ctrl+Shift+A or Alt+Shift+A)
+  useEffect(() => {
+    const handleAdminKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (
+        (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) ||
+        (e.altKey && e.shiftKey && (e.key === 'A' || e.key === 'a'))
+      ) {
+        e.preventDefault();
+        setIsAdminLoginOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleAdminKey);
+    return () => window.removeEventListener('keydown', handleAdminKey);
+  }, []);
 
   // ------------------------------------------------------------
   // ADMIN SIGN OUT
@@ -662,7 +689,10 @@ export default function App() {
   // ------------------------------------------------------------
   const [selectedTeacherId, setSelectedTeacherId] =
     useState<string>(() => {
-      const urlParam = searchParams.get('teacherId');
+      const urlParam =
+        searchParams.get('teacherId') ||
+        searchParams.get('teacher') ||
+        searchParams.get('tid');
 
       if (urlParam) return urlParam;
 
@@ -676,6 +706,8 @@ export default function App() {
 
       return '';
     });
+
+  const isTeacherPortal = isExplicitTeacher || Boolean(selectedTeacherId);
 
   const [selectedSection, setSelectedSection] =
     useState<string>('');
@@ -2127,12 +2159,12 @@ export default function App() {
           systemConfig.marksEntryStatus ===
           'OFF'
         }
-        isTeacherPortal={isExplicitTeacher}
+        isTeacherPortal={isTeacherPortal}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
 
-        {isAdminAuthenticatedFlag && (
+        {isAdminAuthenticatedFlag && !isTeacherPortal && (
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl p-3.5 px-4 text-xs flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md border border-indigo-700/50">
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
@@ -2787,19 +2819,7 @@ export default function App() {
               Evaluation Guide & Shortcuts
             </button>
 
-            {!isAdminAuthenticatedFlag ? (
-              <>
-                <span>•</span>
-                <button
-                  onClick={handleOpenAdminLogin}
-                  className="text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                  title="परीक्षा प्रभारी / व्यवस्थापक लॉगिन"
-                >
-                  <Shield className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>व्यवस्थापक प्रवेश (Admin Login)</span>
-                </button>
-              </>
-            ) : (
+            {isAdminAuthenticatedFlag && !isTeacherPortal && (
               <>
                 <span>•</span>
                 <button
