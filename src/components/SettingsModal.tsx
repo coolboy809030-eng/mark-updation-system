@@ -1112,9 +1112,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   ) : (
                     <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-                      {currentAccounts.map(acc => (
+                      {currentAccounts.map((acc, idx) => (
                         <div
-                          key={acc.id}
+                          key={`${acc.id || acc.teacherId}_${idx}`}
                           className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 transition-colors"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -1233,8 +1233,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-600"
                             >
                               <option value="">-- पंजीकृत शिक्षक चुनें --</option>
-                              {currentAccounts.map(acc => (
-                                <option key={acc.id} value={acc.id}>
+                              {currentAccounts.map((acc, idx) => (
+                                <option key={`${acc.id || acc.teacherId}_${idx}`} value={acc.id}>
                                   {acc.teacherId} — {acc.teacherName} {acc.active ? '' : '(Inactive)'}
                                 </option>
                               ))}
@@ -1399,11 +1399,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                        {teacherAllotments.map(t => {
+                        {teacherAllotments.map((t, idx) => {
                           const sectionsList = (t.sections && t.sections.length > 0) ? t.sections : ['A'];
                           return (
                             <div
-                              key={t.id}
+                              key={`${t.id || t.teacherId}_${idx}`}
                               className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-2xs"
                             >
                               <div className="space-y-1">

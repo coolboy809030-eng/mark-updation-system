@@ -222,8 +222,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-700 transition-all cursor-pointer"
             >
               <option value="">-- शिक्षक खाता चुनें (Select Teacher Account) --</option>
-              {teacherAccounts.map((acc) => (
-                <option key={acc.id} value={acc.teacherId}>
+              {teacherAccounts.map((acc, idx) => (
+                <option key={`${acc.id || acc.teacherId}_${idx}`} value={acc.teacherId}>
                   {acc.teacherId} — {acc.teacherName} {acc.active ? '' : '⚠️ [Inactive]'}
                 </option>
               ))}

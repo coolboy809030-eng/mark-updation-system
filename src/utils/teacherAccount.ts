@@ -138,7 +138,18 @@ export function loadTeacherAccounts(): TeacherAccount[] {
     console.warn('Teacher legacy allotment migration notice:', migrErr);
   }
 
-  return accounts;
+  // Deduplicate accounts by teacherId or id
+  const seenAccKeys = new Set<string>();
+  const dedupedAccounts: TeacherAccount[] = [];
+  for (const acc of accounts) {
+    const rawKey = (acc.teacherId || acc.id || '').trim().toUpperCase();
+    if (!rawKey || !seenAccKeys.has(rawKey)) {
+      if (rawKey) seenAccKeys.add(rawKey);
+      dedupedAccounts.push(acc);
+    }
+  }
+
+  return dedupedAccounts;
 }
 
 /**
@@ -147,10 +158,20 @@ export function loadTeacherAccounts(): TeacherAccount[] {
  */
 export function saveTeacherAccounts(accounts: TeacherAccount[]): void {
   try {
-    localStorage.setItem(TEACHER_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+    const seenAccKeys = new Set<string>();
+    const dedupedAccounts: TeacherAccount[] = [];
+    for (const acc of accounts) {
+      const rawKey = (acc.teacherId || acc.id || '').trim().toUpperCase();
+      if (!rawKey || !seenAccKeys.has(rawKey)) {
+        if (rawKey) seenAccKeys.add(rawKey);
+        dedupedAccounts.push(acc);
+      }
+    }
+
+    localStorage.setItem(TEACHER_ACCOUNTS_STORAGE_KEY, JSON.stringify(dedupedAccounts));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('teacher_accounts_updated', {
-        detail: { accounts }
+        detail: { accounts: dedupedAccounts }
       }));
     }
   } catch (err) {
@@ -170,13 +191,23 @@ export function loadTeacherAllotments(): TeacherAllotment[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.map((allot: any) => ({
-      ...allot,
-      sections: (allot.sections && Array.isArray(allot.sections) && allot.sections.length > 0)
-        ? allot.sections
-        : ['A'],
-      active: allot.active !== false
-    }));
+    const seenAllotIds = new Set<string>();
+    return parsed.map((allot: any, idx: number) => {
+      let uniqueId = allot.id ? String(allot.id) : `allot_${idx}`;
+      if (seenAllotIds.has(uniqueId)) {
+        uniqueId = `${uniqueId}_${idx}`;
+      }
+      seenAllotIds.add(uniqueId);
+
+      return {
+        ...allot,
+        id: uniqueId,
+        sections: (allot.sections && Array.isArray(allot.sections) && allot.sections.length > 0)
+          ? allot.sections
+          : ['A'],
+        active: allot.active !== false
+      };
+    });
   } catch (err) {
     console.error('Failed to load teacher allotments from localStorage', err);
     return [];
@@ -188,7 +219,19 @@ export function loadTeacherAllotments(): TeacherAllotment[] {
  */
 export function saveTeacherAllotments(allotments: TeacherAllotment[]): void {
   try {
-    localStorage.setItem(TEACHER_ALLOTMENTS_STORAGE_KEY, JSON.stringify(allotments));
+    const seenAllotIds = new Set<string>();
+    const safeAllotments = (allotments || []).map((allot, idx) => {
+      let uniqueId = allot.id ? String(allot.id) : `allot_${idx}`;
+      if (seenAllotIds.has(uniqueId)) {
+        uniqueId = `${uniqueId}_${idx}`;
+      }
+      seenAllotIds.add(uniqueId);
+      return {
+        ...allot,
+        id: uniqueId
+      };
+    });
+    localStorage.setItem(TEACHER_ALLOTMENTS_STORAGE_KEY, JSON.stringify(safeAllotments));
   } catch (err) {
     console.error('Failed to save teacher allotments', err);
   }

@@ -2062,7 +2062,7 @@ export default function App() {
             handleUpdateSystemConfig
           }
           scriptUrl={
-            settings.googleSheetApiUrl
+            getEffectiveGasUrl(settings.googleSheetApiUrl)
           }
           onUpdateScriptUrl={url =>
             handleSaveSettings({

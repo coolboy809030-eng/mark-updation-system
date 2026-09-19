@@ -567,6 +567,7 @@ function getTeachersData(ss) {
     return { accounts: [], allotments: [] };
   }
 
+  var seenTeacherIds = {};
   var accounts = [];
   var allotments = [];
 
@@ -576,6 +577,7 @@ function getTeachersData(ss) {
     var teacherName = String(row[1] || "").trim();
     if (!teacherId && !teacherName) continue;
 
+    var cleanId = teacherId || ("TCH_" + r);
     var contact = String(row[2] || "").trim();
     var statusStr = String(row[3] || "ACTIVE").trim().toUpperCase();
     var active = statusStr !== "INACTIVE" && statusStr !== "FALSE";
@@ -585,24 +587,27 @@ function getTeachersData(ss) {
     var subjectsRaw = String(row[6] || "").trim();
     var lastUpdated = String(row[7] || "").trim();
 
-    accounts.push({
-      id: "tch_acc_" + teacherId.replace(/[^a-zA-Z0-9]/g, "_"),
-      teacherId: teacherId,
-      teacherName: teacherName,
-      contact: contact,
-      active: active,
-      updatedAt: lastUpdated || new Date().toISOString()
-    });
+    if (!seenTeacherIds[cleanId]) {
+      seenTeacherIds[cleanId] = true;
+      accounts.push({
+        id: "tch_acc_" + cleanId.replace(/[^a-zA-Z0-9]/g, "_"),
+        teacherId: cleanId,
+        teacherName: teacherName,
+        contact: contact,
+        active: active,
+        updatedAt: lastUpdated || new Date().toISOString()
+      });
+    }
 
     var classList = classesRaw ? classesRaw.split(",").map(function(c) { return c.trim().replace("Class_", ""); }).filter(Boolean) : [];
     var secList = sectionsRaw ? sectionsRaw.split(",").map(function(s) { return s.trim(); }).filter(Boolean) : ["A"];
     var subList = subjectsRaw ? subjectsRaw.split(",").map(function(s) { return s.trim(); }).filter(Boolean) : [];
 
     if (classList.length > 0) {
-      classList.forEach(function(cls) {
+      classList.forEach(function(cls, idx) {
         allotments.push({
-          id: "allot_" + teacherId + "_" + cls,
-          teacherId: teacherId,
+          id: "allot_" + cleanId + "_" + cls + "_" + allotments.length,
+          teacherId: cleanId,
           teacherName: teacherName,
           classLevel: cls,
           sections: secList.length > 0 ? secList : ["A"],
@@ -612,8 +617,8 @@ function getTeachersData(ss) {
       });
     } else {
       allotments.push({
-        id: "allot_" + teacherId,
-        teacherId: teacherId,
+        id: "allot_" + cleanId + "_" + allotments.length,
+        teacherId: cleanId,
         teacherName: teacherName,
         classLevel: "10",
         sections: secList,
@@ -803,12 +808,47 @@ function handleGetFullResults(targetClass) {
   var urnCol = findColumnIndex(headers, ["admission no", "urn", "adm no", "admission number", "student urn"]);
   if (urnCol === -1) urnCol = 2;
 
+  var rollCol = findColumnIndex(headers, ["roll", "roll no", "roll number", "sr", "sl", "rollno"]);
+  if (rollCol === -1) rollCol = 1;
+
+  var nameCol = findColumnIndex(headers, ["student name", "name", "student_name", "candidate name"]);
+  if (nameCol === -1) nameCol = 3;
+
+  var fatherCol = findColumnIndex(headers, ["father name", "father's name", "father"]);
+  if (fatherCol === -1) fatherCol = 4;
+
+  var motherCol = findColumnIndex(headers, ["mother name", "mother's name", "mother"]);
+  if (motherCol === -1) motherCol = 5;
+
+  var dobCol = findColumnIndex(headers, ["dob", "date of birth", "birth date"]);
+  if (dobCol === -1) dobCol = 6;
+
+  var genderCol = findColumnIndex(headers, ["gender", "sex"]);
+  if (genderCol === -1) genderCol = 7;
+
+  var categoryCol = findColumnIndex(headers, ["category", "caste"]);
+  if (categoryCol === -1) categoryCol = 8;
+
+  var mobileCol = findColumnIndex(headers, ["mobile", "phone", "contact"]);
+  if (mobileCol === -1) mobileCol = 9;
+
+  var optCol = findColumnIndex(headers, ["optional subject", "optional", "3rd language", "third language", "2nd language"]);
+  if (optCol === -1) optCol = 10;
+
+  var photoCol = findColumnIndex(headers, ["photo url", "photo", "photo link", "drive link", "student photo", "picture"]);
+  if (photoCol === -1) photoCol = 11;
+
+  var metaIndices = [urnCol, rollCol, nameCol, fatherCol, motherCol, dobCol, genderCol, categoryCol, mobileCol, optCol, photoCol];
+  if (headers[0] && headers[0].toLowerCase().indexOf("sl") !== -1) {
+    metaIndices.push(0);
+  }
+
   var students = [];
 
   for (var r = 1; r < data.length; r++) {
     var row = data[r];
-    var roll = row[1];
-    var name = row[3];
+    var roll = row[rollCol];
+    var name = row[nameCol];
     if (!roll && !name) continue;
 
     var urn = normalizeUrn(row[urnCol]);
@@ -820,17 +860,22 @@ function handleGetFullResults(targetClass) {
     var attHY = "";
     var attAE = "";
 
-    for (var c = 12; c < headers.length; c++) {
+    for (var c = 0; c < headers.length; c++) {
       var header = headers[c];
-      var val = row[c];
-      if (header === "Attendance-HY") {
-        attHY = (val !== undefined && val !== null && val !== "") ? String(val) : "";
-      } else if (header === "Attendance-AE") {
-        attAE = (val !== undefined && val !== null && val !== "") ? String(val) : "";
-      } else if (val !== undefined && val !== null && val !== "") {
-        var key = header.replace(/\\s+/g, "_").replace(/-/g, "_");
-        rawMarks[key] = val;
-        rawMarks[header] = val;
+      if (!header) continue;
+      var hLower = header.toLowerCase();
+
+      if (hLower === "attendance-hy" || hLower === "attendance_hy" || hLower === "hy attendance") {
+        attHY = (row[c] !== undefined && row[c] !== null && row[c] !== "") ? String(row[c]) : "";
+      } else if (hLower === "attendance-ae" || hLower === "attendance_ae" || hLower === "ae attendance") {
+        attAE = (row[c] !== undefined && row[c] !== null && row[c] !== "") ? String(row[c]) : "";
+      } else if (metaIndices.indexOf(c) === -1) {
+        var val = row[c];
+        if (val !== undefined && val !== null && val !== "") {
+          var key = header.replace(/\\s+/g, "_").replace(/-/g, "_");
+          rawMarks[key] = val;
+          rawMarks[header] = val;
+        }
       }
     }
 
@@ -839,16 +884,16 @@ function handleGetFullResults(targetClass) {
       urn: urn,
       admNo: urn,
       name: name !== undefined ? String(name).trim() : "",
-      fatherName: row[4] !== undefined ? String(row[4]).trim() : "",
-      motherName: row[5] !== undefined ? String(row[5]).trim() : "",
-      dob: row[6] !== undefined ? String(row[6]).trim() : "",
-      gender: row[7] !== undefined ? String(row[7]).trim() : "",
-      category: row[8] !== undefined ? String(row[8]).trim() : "",
+      fatherName: (fatherCol !== -1 && row[fatherCol] !== undefined) ? String(row[fatherCol]).trim() : "",
+      motherName: (motherCol !== -1 && row[motherCol] !== undefined) ? String(row[motherCol]).trim() : "",
+      dob: (dobCol !== -1 && row[dobCol] !== undefined) ? String(row[dobCol]).trim() : "",
+      gender: (genderCol !== -1 && row[genderCol] !== undefined) ? String(row[genderCol]).trim() : "",
+      category: (categoryCol !== -1 && row[categoryCol] !== undefined) ? String(row[categoryCol]).trim() : "",
       studentClass: normalizeClassName(targetClass).replace("Class_", ""),
       section: "A",
-      mobile: row[9] !== undefined ? String(row[9]).trim() : "",
-      optionalSubject: row[10] !== undefined ? String(row[10]).trim() : "",
-      photoUrl: row[11] !== undefined ? String(row[11]).trim() : "",
+      mobile: (mobileCol !== -1 && row[mobileCol] !== undefined) ? String(row[mobileCol]).trim() : "",
+      optionalSubject: (optCol !== -1 && row[optCol] !== undefined) ? String(row[optCol]).trim() : "",
+      photoUrl: (photoCol !== -1 && row[photoCol] !== undefined) ? String(row[photoCol]).trim() : "",
       attendanceHY: attHY,
       attendanceAE: attAE,
       rawMarks: rawMarks

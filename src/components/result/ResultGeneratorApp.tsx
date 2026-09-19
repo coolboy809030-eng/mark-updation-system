@@ -39,6 +39,7 @@ import { StudentManagementView } from './StudentManagementView';
 import { GoogleSheetDiagnosticModal } from './GoogleSheetDiagnosticModal';
 import { MarksAuditView } from './MarksAuditView';
 import { fetchClassResultsFromGoogle } from '../../utils/googleSheetFetcher';
+import { getEffectiveGasUrl } from '../../config/appConfig';
 import { instantSyncBridge } from '../../utils/instantSyncBridge';
 import { getStudentURN, normalizeURN } from '../../utils/studentIdentity';
 import { getStudentPhotoUrl } from '../../utils/photoMapping';
@@ -315,11 +316,65 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
       return;
     }
 
-    setIsLoading(true);
     const cacheKey = `pis_exam_results_${cls}_2025`;
+    const effectiveUrl = getEffectiveGasUrl(scriptUrl);
+    const hasValidRemote = Boolean(effectiveUrl && !effectiveUrl.includes('PASTE_YOUR') && effectiveUrl.startsWith('http'));
 
-    // If not forcing remote, check localStorage cache first
+    // Step 1: Immediate cache render (instant display, 0ms latency)
+    let foundCache = false;
     if (!forceRemote) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setClassRecords(parsed);
+            foundCache = true;
+          }
+        } catch (e) {
+          console.warn('Cache parse error', e);
+        }
+      }
+    }
+
+    // Show loading spinner if no cached data is immediately available
+    if (!foundCache) {
+      setIsLoading(true);
+    }
+
+    // Step 2: Fetch latest live data from Google Sheets in background or foreground
+    if (hasValidRemote) {
+      try {
+        const result = await fetchClassResultsFromGoogle(effectiveUrl, cls);
+        if (result.success && result.students && result.students.length > 0) {
+          setClassRecords(result.students);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(result.students));
+          } catch {}
+          const nowStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+          setLastSyncedTime(nowStr);
+          setFetchToast({
+            message: `Class ${cls}: Live Google Sheet data synced (${result.students.length} students)`,
+            type: 'success'
+          });
+          setTimeout(() => setFetchToast(null), 2500);
+          setIsLoading(false);
+          return;
+        }
+      } catch (err: any) {
+        console.warn('Remote Google fetch failed, checking fallback:', err);
+        if (forceRemote || !foundCache) {
+          setFetchToast({
+            message: `Sheet Sync Info: ${err.message || 'Check deployment access'}. Using local dataset.`,
+            type: 'info'
+          });
+          setTimeout(() => setFetchToast(null), 3000);
+        }
+      }
+    }
+
+    // Step 3: Fallback if remote failed and no cache was found
+    if (!foundCache) {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
@@ -329,64 +384,22 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
             setIsLoading(false);
             return;
           }
-        } catch (e) {
-          console.warn('Cache parse error', e);
-        }
+        } catch {}
       }
-    }
 
-    // Try fetching from Google Apps Script or Google Sheets if URL provided
-    if (scriptUrl && scriptUrl.trim() !== '' && !scriptUrl.includes('PASTE_YOUR')) {
+      // Generate standard dataset (also preserving any student photos)
+      const defaults = getInitialClassExamRecords(cls).map(st => {
+        const urn = getStudentURN(st);
+        const savedPhoto = urn ? localStorage.getItem(`pis_photo_${urn}`) : '';
+        return savedPhoto ? { ...st, photoUrl: savedPhoto } : st;
+      });
+      setClassRecords(defaults);
       try {
-        const result = await fetchClassResultsFromGoogle(scriptUrl, cls);
-        if (result.success && result.students.length > 0) {
-          setClassRecords(result.students);
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify(result.students));
-          } catch {}
-          setLastSyncedTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
-          setFetchToast({
-            message: `Class ${cls}: Successfully synced ${result.students.length} students from Google Sheet (${result.source})`,
-            type: 'success'
-          });
-          setTimeout(() => setFetchToast(null), 2000); // Exactly 2 seconds as requested
-          setIsLoading(false);
-          return;
-        }
-      } catch (err: any) {
-        console.warn('Remote Google fetch failed, checking fallback:', err);
-        setFetchToast({
-          message: `Sheet Sync Info: ${err.message || 'Check deployment access'}. Using local dataset.`,
-          type: 'info'
-        });
-        setTimeout(() => setFetchToast(null), 2000); // Exactly 2 seconds as requested
-      }
-    }
-
-    // Fallback: check cache
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setClassRecords(parsed);
-          setIsLoading(false);
-          return;
-        }
+        localStorage.setItem(cacheKey, JSON.stringify(defaults));
       } catch {}
+      setLastSyncedTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     }
 
-    // Generate standard dataset (also preserving any student photos)
-    const defaults = getInitialClassExamRecords(cls).map(st => {
-      const urn = getStudentURN(st);
-      const savedPhoto = urn ? localStorage.getItem(`pis_photo_${urn}`) : '';
-      return savedPhoto ? { ...st, photoUrl: savedPhoto } : st;
-    });
-    setClassRecords(defaults);
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(defaults));
-    } catch {}
-    setLastSyncedTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     setIsLoading(false);
   };
 
