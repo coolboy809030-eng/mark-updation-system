@@ -4,7 +4,6 @@ import {
   Lock,
   X,
   AlertCircle,
-  CheckCircle2,
   Eye,
   EyeOff,
   Save,

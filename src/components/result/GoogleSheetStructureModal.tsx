@@ -11,14 +11,10 @@ import {
   X, 
   Layers, 
   Table, 
-  HelpCircle,
-  ArrowRight,
-  Database,
   Users,
   Code,
   BookOpen,
-  Sparkles,
-  Info
+  Sparkles
 } from 'lucide-react';
 import { ClassLevel } from '../../types';
 import { SUBJECTS_BY_CLASS, DEFAULT_STUDENTS_BY_CLASS } from '../../data/schoolConfig';

@@ -18,7 +18,7 @@ import { FullStudentExamRecord } from '../../types/resultTypes';
 import { ClassLevel } from '../../types';
 import { buildClassMarksAuditRecords, MarksAuditRecord } from '../../utils/marksAudit';
 import { exportMarksAuditToPdf, exportMarksAuditToExcel, exportMarksAuditToCsv } from '../../utils/marksAuditExport';
-import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from '../../utils/dateFormatter';
+import { formatDisplayDate, formatDisplayTime } from '../../utils/dateFormatter';
 import { instantSyncBridge } from '../../utils/instantSyncBridge';
 
 interface MarksAuditViewProps {

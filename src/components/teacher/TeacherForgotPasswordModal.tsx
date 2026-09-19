@@ -6,8 +6,7 @@ import {
   CheckCircle2,
   Send,
   ArrowLeft,
-  HelpCircle,
-  MessageCircle
+  HelpCircle
 } from 'lucide-react';
 import { requestTeacherPasswordReset } from '../../utils/teacherAccount';
 

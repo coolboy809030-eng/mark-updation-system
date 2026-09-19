@@ -1,5 +1,4 @@
 import { FullStudentExamRecord, SubjectResult, DualExamSubjectResult, StudentResultSummary, ExamType } from '../types/resultTypes';
-import { detectStudentOptionalSubject } from './studentSubjectDetector';
 import { getStudentEvaluationCurriculum, expandSubjectAliases } from './subjectCurriculum';
 
 export function isAbsent(val: string | number | undefined | null): boolean {
@@ -351,4 +350,72 @@ export function rankClassStudents(
   });
 
   return rankMap;
+}
+
+export interface ClassAcademicAnalytics {
+  totalStudents: number;
+  passCount: number;
+  failCount: number;
+  passPercentage: string;
+  avgPct: string;
+  highestScore: number;
+  lowestScore: number;
+  averageMarks: string;
+}
+
+/**
+ * Computes centralized class academic summary and metrics
+ */
+export function computeClassAnalytics(summaries: StudentResultSummary[]): ClassAcademicAnalytics {
+  if (!summaries.length) {
+    return {
+      totalStudents: 0,
+      passCount: 0,
+      failCount: 0,
+      passPercentage: '0',
+      avgPct: '0',
+      highestScore: 0,
+      lowestScore: 0,
+      averageMarks: '0'
+    };
+  }
+
+  let totalScoreSum = 0;
+  let totalMaxSum = 0;
+  let totalPctSum = 0;
+  let highestScore = 0;
+  let lowestScore = Infinity;
+  let passCount = 0;
+  let failCount = 0;
+
+  summaries.forEach(sm => {
+    totalScoreSum += sm.totalObtained;
+    totalMaxSum += sm.maxMarks;
+    totalPctSum += sm.percentage;
+    if (sm.totalObtained > highestScore) highestScore = sm.totalObtained;
+    if (sm.totalObtained < lowestScore) lowestScore = sm.totalObtained;
+    if (sm.resultStatus === 'PASS') {
+      passCount++;
+    } else {
+      failCount++;
+    }
+  });
+
+  if (lowestScore === Infinity) lowestScore = 0;
+
+  const count = summaries.length;
+  const avgPct = totalMaxSum > 0 ? ((totalScoreSum / totalMaxSum) * 100).toFixed(1) : (totalPctSum / count).toFixed(1);
+  const passPercentage = count > 0 ? ((passCount / count) * 100).toFixed(1) : '0';
+  const averageMarks = count > 0 ? (totalScoreSum / count).toFixed(1) : '0';
+
+  return {
+    totalStudents: count,
+    passCount,
+    failCount,
+    passPercentage,
+    avgPct,
+    highestScore,
+    lowestScore,
+    averageMarks
+  };
 }

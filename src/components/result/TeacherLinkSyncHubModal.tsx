@@ -12,11 +12,8 @@ import {
   X, 
   ShieldCheck, 
   Database, 
-  ArrowRight,
   Send,
   Sparkles,
-  Layers,
-  AlertTriangle,
   FileSpreadsheet
 } from 'lucide-react';
 import { SystemControlConfig } from '../../types/resultTypes';

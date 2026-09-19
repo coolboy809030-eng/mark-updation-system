@@ -5,27 +5,21 @@ import {
   Search, 
   Edit3, 
   Trash2, 
-  Eye, 
   FileText, 
   Award, 
   Database, 
   RefreshCw, 
-  Check, 
   X, 
   AlertCircle, 
   CheckCircle2, 
   Copy, 
   Download, 
-  Camera, 
   Calendar, 
   Phone, 
-  BookOpen, 
-  ArrowUpDown,
   Filter,
   Save,
   Wrench,
-  Sparkles,
-  ExternalLink
+  Sparkles
 } from 'lucide-react';
 import { ClassLevel } from '../../types';
 import { formatDisplayDate } from '../../utils/dateFormatter';

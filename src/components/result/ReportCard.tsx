@@ -11,6 +11,7 @@ import {
 } from '../../utils/resultCalculator';
 import { PerformanceBarGraph, SubjectChartItem } from './PerformanceBarGraph';
 import { exportReportCardToPdf } from '../../utils/pdfExport';
+import { pad2 } from '../../utils/dateFormatter';
 import { Download, BarChart2, PenTool } from 'lucide-react';
 import { getStoredSignatures, SchoolSignatures } from '../../utils/signatureStorage';
 import { OfficialSignaturesModal } from './OfficialSignaturesModal';
@@ -130,7 +131,7 @@ export const ReportCard: React.FC<ReportCardProps> = ({
 
   // Format Roll No to two digits if numeric (e.g. "07")
   const formattedRoll = !isNaN(Number(student.roll)) 
-    ? String(Number(student.roll)).padStart(2, '0') 
+    ? pad2(Number(student.roll)) 
     : String(student.roll);
 
   // Compute chart items for the bar graph (only using student's active subjects)

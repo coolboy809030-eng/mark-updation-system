@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import {
   UserCheck,
   Lock,
-  KeyRound,
   X,
   AlertCircle,
   Eye,
   EyeOff,
   LogIn,
-  HelpCircle,
-  ShieldAlert
+  HelpCircle
 } from 'lucide-react';
 import { TeacherAccount } from '../../types';
 import {

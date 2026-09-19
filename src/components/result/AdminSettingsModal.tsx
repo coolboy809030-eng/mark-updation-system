@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { SystemControlConfig } from '../../types/resultTypes';
 import { Shield, Save, X, ToggleLeft, ToggleRight, Calendar, Check, KeyRound } from 'lucide-react';
 import { MASTER_ADMIN_PIN } from '../../data/schoolConfig';
+import { createPresetDeadline } from '../../utils/dateFormatter';
+import {
+  verifyAdminPin,
+  getAdminFailedAttempts,
+  incrementAdminFailedAttempts,
+  resetAdminFailedAttempts
+} from '../../utils/adminSession';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -29,13 +36,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [failedAttempts, setFailedAttempts] = useState<number>(() => {
-    try {
-      return parseInt(sessionStorage.getItem('pis_admin_failed_attempts') || '0', 10);
-    } catch {
-      return 0;
-    }
-  });
+  const [failedAttempts, setFailedAttempts] = useState<number>(() => getAdminFailedAttempts());
 
   // Password Change in Admin Settings
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -54,25 +55,14 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 
   const handleVerifyPin = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPin = pin.trim();
-    const expectedPin = adminPin.trim() || MASTER_ADMIN_PIN;
-    if (cleanPin === expectedPin || cleanPin === MASTER_ADMIN_PIN) {
+    if (verifyAdminPin(pin, adminPin)) {
       setIsAuthenticated(true);
       setAuthError('');
       setFailedAttempts(0);
-      try {
-        sessionStorage.removeItem('pis_admin_failed_attempts');
-      } catch {
-        // ignore
-      }
+      resetAdminFailedAttempts();
     } else {
-      const nextCount = failedAttempts + 1;
+      const nextCount = incrementAdminFailedAttempts();
       setFailedAttempts(nextCount);
-      try {
-        sessionStorage.setItem('pis_admin_failed_attempts', String(nextCount));
-      } catch {
-        // ignore
-      }
 
       if (nextCount > 3) {
         setAuthError('Your Mark Entry Power can be locked');
@@ -120,13 +110,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   };
 
   const setPresetDeadline = (days: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    d.setHours(23, 59, 0, 0);
-    // Format to YYYY-MM-DDTHH:mm
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const str = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    setDeadline(str);
+    setDeadline(createPresetDeadline(days));
   };
 
   return (

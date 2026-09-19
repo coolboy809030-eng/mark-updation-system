@@ -4,7 +4,6 @@ import { ClassSubjectAllotmentMap } from '../../types/resultTypes';
 import { SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
 import { getFullSubjectName } from '../../utils/resultCalculator';
 import {
-  BookOpen,
   Check,
   X,
   Save,
@@ -12,13 +11,9 @@ import {
   RotateCcw,
   Copy,
   Layers,
-  Sparkles,
   CheckCircle2,
-  AlertCircle,
-  ArrowRight,
   ShieldCheck,
   Search,
-  Trash2,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';

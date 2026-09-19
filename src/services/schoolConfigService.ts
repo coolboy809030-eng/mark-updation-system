@@ -1,4 +1,4 @@
-import { TeacherAccount, TeacherAllotment, ClassLevel } from '../types';
+import { TeacherAccount, TeacherAllotment } from '../types';
 import { SystemControlConfig, ClassSubjectAllotmentMap } from '../types/resultTypes';
 import {
   saveTeacherAccounts,
@@ -12,6 +12,7 @@ import {
 } from '../utils/subjectCurriculum';
 import { getEffectiveGasUrl } from '../config/appConfig';
 import { MASTER_ADMIN_PIN } from '../data/schoolConfig';
+import { gasGet, gasPost } from './gasClient';
 
 export const SYSTEM_CONFIG_STORAGE_KEY = 'pis_system_control_config_v1';
 export const SEGMENT_LOCKS_STORAGE_KEY = 'pis_segment_locks_v1';
@@ -49,21 +50,10 @@ export async function fetchSchoolConfigFromGAS(
   }
 
   try {
-    const urlWithParams = `${scriptUrl}?action=getSchoolConfig&timestamp=${Date.now()}`;
-    const response = await fetch(urlWithParams, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+    const res = await gasGet('getSchoolConfig', undefined, { providedUrl });
 
-    if (!response.ok) {
-      throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    if (data && (data.status === 'success' || data.success)) {
+    if (res.success && res.data) {
+      const data = res.data;
       // 1. System Config
       let resolvedSystemConfig = localDefaults.systemConfig;
       if (data.systemConfig && typeof data.systemConfig === 'object') {
@@ -158,48 +148,20 @@ export async function saveSchoolConfigToGAS(
   segmentLocks?: Record<string, boolean>,
   providedUrl?: string
 ): Promise<{ success: boolean; message: string }> {
-  const scriptUrl = getEffectiveGasUrl(providedUrl);
-  if (!scriptUrl || scriptUrl.includes('PASTE_YOUR')) {
-    return {
-      success: false,
-      message: 'No Google Sheet API URL configured.'
-    };
-  }
+  const res = await gasPost(
+    'saveSchoolConfig',
+    {
+      config,
+      subjectAllotments,
+      segmentLocks
+    },
+    { providedUrl }
+  );
 
-  try {
-    const response = await fetch(scriptUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: JSON.stringify({
-        action: 'saveSchoolConfig',
-        config,
-        subjectAllotments,
-        segmentLocks,
-        timestamp: new Date().toISOString()
-      })
-    });
-
-    const data = await response.json();
-    if (data && (data.status === 'success' || data.success)) {
-      return {
-        success: true,
-        message: data.message || 'School configuration synced to Google Sheet (_SYSTEM_CONFIG).'
-      };
-    }
-
-    return {
-      success: false,
-      message: data?.message || 'Google Sheet returned an error while saving configuration.'
-    };
-  } catch (err: any) {
-    console.error('[SchoolConfigSync] Error:', err);
-    return {
-      success: false,
-      message: `Failed to save configuration to Google Sheet: ${err?.message || 'Network error'}`
-    };
-  }
+  return {
+    success: res.success,
+    message: res.message || (res.success ? 'School configuration synced to Google Sheet (_SYSTEM_CONFIG).' : 'Failed to save configuration to Google Sheet.')
+  };
 }
 
 /**

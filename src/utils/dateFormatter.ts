@@ -149,3 +149,20 @@ export function formatDisplayTime(
 
   return `${formattedHours}:${minutes} ${ampm}`;
 }
+
+/**
+ * 2-digit number padding helper (e.g. 5 -> '05')
+ */
+export function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+/**
+ * Creates an ISO local datetime string (YYYY-MM-DDTHH:mm) offset by given days from now, set to 23:59
+ */
+export function createPresetDeadline(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(23, 59, 0, 0);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}

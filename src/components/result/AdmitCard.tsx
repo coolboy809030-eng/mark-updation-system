@@ -4,7 +4,7 @@ import { ClassLevel } from '../../types';
 import { SCHOOL_NAME, SCHOOL_SUBTITLE, ACADEMIC_SESSION, SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
 import { SCHOOL_LOGO_BASE64 } from '../../data/logoData';
 import { getFullSubjectName } from '../../utils/resultCalculator';
-import { Download, UserCheck, Calendar, Clock, Camera, CheckCircle2, Image as ImageIcon, PenTool } from 'lucide-react';
+import { Download, UserCheck, Camera, PenTool } from 'lucide-react';
 import { exportAdmitCardToPdf } from '../../utils/pdfExport';
 import { getStoredSignatures, SchoolSignatures } from '../../utils/signatureStorage';
 import { OfficialSignaturesModal } from './OfficialSignaturesModal';

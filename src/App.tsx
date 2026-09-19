@@ -77,8 +77,9 @@ import { TeacherLoginModal } from './components/teacher/TeacherLoginModal';
 import { TeacherForgotPasswordModal } from './components/teacher/TeacherForgotPasswordModal';
 import { TeacherChangePasswordModal } from './components/teacher/TeacherChangePasswordModal';
 import { getEffectiveGasUrl } from './config/appConfig';
-import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from './services/teacherSyncService';
+import { saveTeacherRegistryToGAS } from './services/teacherSyncService';
 import { fetchSchoolConfigFromGAS, saveSchoolConfigToGAS } from './services/schoolConfigService';
+import { pad2 } from './utils/dateFormatter';
 import {
   CheckCircle2,
   AlertCircle,
@@ -88,11 +89,8 @@ import {
   Settings,
   UserCheck,
   BookOpen,
-  Shield,
   KeyRound,
-  LogIn,
-  LogOut,
-  ShieldCheck
+  LogIn
 } from 'lucide-react';
 
 const SETTINGS_STORAGE_KEY = 'pis_markupdation_settings_v1';
@@ -701,8 +699,7 @@ export default function App() {
 
   const [attendanceDate, setAttendanceDate] = useState(() => {
     const today = new Date();
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    return `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
   });
 
   const totalWorkingDays = String(

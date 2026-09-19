@@ -1,27 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { FullStudentExamRecord, ExamScheduleItem } from '../../types/resultTypes';
 import { ClassLevel } from '../../types';
-import { SUBJECTS_BY_CLASS, SCHOOL_NAME, ACADEMIC_SESSION } from '../../data/schoolConfig';
+import { SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
 import { getFullSubjectName } from '../../utils/resultCalculator';
-import { AdmitCard, formatPhotoUrl } from './AdmitCard';
+import { AdmitCard } from './AdmitCard';
 import {
   Calendar,
-  Clock,
   Sparkles,
   Download,
-  Users,
   Search,
   Save,
-  CheckCircle2,
-  RefreshCw,
-  Edit3,
-  Camera,
   CheckSquare,
   Square,
-  Layers,
-  FileDown
+  Layers
 } from 'lucide-react';
 import { exportAdmitCardToPdf, exportBatchAdmitCardsToPdf } from '../../utils/pdfExport';
+import { useBatchStudentSelection } from '../../utils/useBatchStudentSelection';
 
 interface AdmitCardGeneratorProps {
   selectedClass: ClassLevel;
@@ -48,30 +42,19 @@ export const AdmitCardGenerator: React.FC<AdmitCardGeneratorProps> = ({
   const [selectedAdmNo, setSelectedAdmNo] = useState<string>(students[0]?.admNo || '');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Batch selection and PDF export state
-  const [selectedBatchStudents, setSelectedBatchStudents] = useState<string[]>(() => students.map(s => s.admNo));
+  // Batch selection via centralized hook and PDF export state
+  const {
+    selectedIds: selectedBatchStudents,
+    selectAll: handleSelectAllBatch,
+    clearAll: handleDeselectAllBatch,
+    toggleId: toggleSelectStudent,
+    isSelected: isBatchStudentSelected,
+    selectedCount: batchSelectedCount
+  } = useBatchStudentSelection({ records: students });
+
   const [isGeneratingBatchPdf, setIsGeneratingBatchPdf] = useState(false);
   const [batchPdfProgress, setBatchPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [isDownloadingSingleAdmNo, setIsDownloadingSingleAdmNo] = useState<string | null>(null);
-
-  // Sync batch selection when students list changes
-  useEffect(() => {
-    setSelectedBatchStudents(students.map(s => s.admNo));
-  }, [students]);
-
-  const handleSelectAllBatch = () => {
-    setSelectedBatchStudents(students.map(s => s.admNo));
-  };
-
-  const handleDeselectAllBatch = () => {
-    setSelectedBatchStudents([]);
-  };
-
-  const toggleSelectStudent = (admNo: string) => {
-    setSelectedBatchStudents(prev =>
-      prev.includes(admNo) ? prev.filter(id => id !== admNo) : [...prev, admNo]
-    );
-  };
 
   const handleDownloadSingleAdmitCard = async (student: FullStudentExamRecord) => {
     const el = document.getElementById(`admit-card-${student.admNo}`);
@@ -704,7 +687,7 @@ export const AdmitCardGenerator: React.FC<AdmitCardGeneratorProps> = ({
           {/* Student Cards List */}
           <div className="space-y-6">
             {filteredStudents.map((st) => {
-              const isSelected = selectedBatchStudents.includes(st.admNo);
+              const isSelected = isBatchStudentSelected(st.admNo);
 
               return (
                 <div key={st.admNo} className="bg-slate-50/70 border border-slate-200 rounded-2xl p-3 sm:p-4 transition-all">

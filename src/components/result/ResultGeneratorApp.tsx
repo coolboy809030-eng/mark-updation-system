@@ -9,7 +9,6 @@ import {
 import { 
   SUBJECTS_BY_CLASS, 
   SCHOOL_NAME, 
-  SCHOOL_SUBTITLE, 
   ACADEMIC_SESSION,
   MASTER_ADMIN_PIN 
 } from '../../data/schoolConfig';
@@ -19,12 +18,14 @@ import {
   rankClassStudents, 
   getFullSubjectName,
   computeStudentSummary,
-  getStudentSubjects
+  getStudentSubjects,
+  computeClassAnalytics
 } from '../../utils/resultCalculator';
 import { 
   exportReportCardToPdf, 
   exportBatchReportCardsToPdf 
 } from '../../utils/pdfExport';
+import { useBatchStudentSelection } from '../../utils/useBatchStudentSelection';
 import { ReportCard } from './ReportCard';
 import { TabulationSheet } from './TabulationSheet';
 import { ClassProgressDashboard } from './ClassProgressDashboard';
@@ -47,36 +48,27 @@ import { getStudentPhotoUrl } from '../../utils/photoMapping';
 import { SyncStatusBar } from '../common/SyncStatusBar';
 import { 
   FileSpreadsheet, 
-  UserCheck, 
   BarChart2, 
   Settings, 
   RefreshCw, 
   ChevronLeft, 
   ChevronRight, 
-  ChevronDown,
   ChevronUp,
-  Search, 
   GraduationCap,
   Layers,
   Sparkles,
   Contact,
   BookOpen,
   Filter,
-  Sliders,
-  Share2,
-  Lock,
   LogOut,
   Eye,
-  Database,
   Shield,
-  ShieldCheck,
   Menu,
   Maximize2,
   X,
   FileText,
   Download,
   CheckSquare,
-  Square,
   Users,
   Wrench,
   CheckCircle2,
@@ -171,48 +163,22 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
 
   // Batch Print States (Collapsible Preview, Range Selection & Batch PDF Export)
   const [isBatchPreviewExpanded, setIsBatchPreviewExpanded] = useState(false);
-  const [selectedBatchStudents, setSelectedBatchStudents] = useState<string[]>([]);
-  const [batchRangeFrom, setBatchRangeFrom] = useState<string>('1');
-  const [batchRangeTo, setBatchRangeTo] = useState<string>('');
+  const {
+    selectedIds: selectedBatchStudents,
+    selectAll: handleSelectAllBatch,
+    clearAll: handleClearAllBatch,
+    toggleId: handleToggleBatchStudent,
+    isSelected: isBatchStudentSelected,
+    rangeFrom: batchRangeFrom,
+    setRangeFrom: setBatchRangeFrom,
+    rangeTo: batchRangeTo,
+    setRangeTo: setBatchRangeTo,
+    applyRollRange: handleApplyBatchRange
+  } = useBatchStudentSelection({ records: classRecords });
+
   const [isGeneratingBatchPdf, setIsGeneratingBatchPdf] = useState(false);
   const [batchPdfProgress, setBatchPdfProgress] = useState<{ current: number; total: number } | null>(null);
   const [modalActiveRoll, setModalActiveRoll] = useState<number | null>(null);
-
-  // Sync batch selection when records change
-  useEffect(() => {
-    if (classRecords.length > 0) {
-      setSelectedBatchStudents(classRecords.map(s => s.admNo));
-      setBatchRangeFrom('1');
-      setBatchRangeTo(String(classRecords.length));
-    }
-  }, [classRecords]);
-
-  const handleApplyBatchRange = () => {
-    const from = parseInt(batchRangeFrom, 10);
-    const to = parseInt(batchRangeTo, 10);
-    if (isNaN(from) || isNaN(to) || from > to) return;
-    const filtered = classRecords
-      .filter(st => {
-        const rollNum = Number(st.roll);
-        return !isNaN(rollNum) && rollNum >= from && rollNum <= to;
-      })
-      .map(st => st.admNo);
-    setSelectedBatchStudents(filtered);
-  };
-
-  const handleSelectAllBatch = () => {
-    setSelectedBatchStudents(classRecords.map(s => s.admNo));
-  };
-
-  const handleClearAllBatch = () => {
-    setSelectedBatchStudents([]);
-  };
-
-  const handleToggleBatchStudent = (admNo: string) => {
-    setSelectedBatchStudents(prev => 
-      prev.includes(admNo) ? prev.filter(id => id !== admNo) : [...prev, admNo]
-    );
-  };
 
   const handleDownloadSinglePdf = async (student: FullStudentExamRecord) => {
     if (!isPreviewExpanded && viewMode === 'report_card') {
@@ -567,27 +533,11 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
   // Academic Summary for Class in Batch Print Mode
   const batchClassSummary = useMemo(() => {
     if (!classRecords.length) return null;
-    let totalScoreSum = 0;
-    let totalMaxSum = 0;
-    let passCount = 0;
-    let failCount = 0;
-
-    classRecords.forEach(st => {
+    const summaries = classRecords.map(st => {
       const studentActiveSubs = getStudentSubjects(st, activeSubjects);
-      const sum = computeStudentSummary(st, studentActiveSubs, examMode, systemConfig.workingDaysHY, systemConfig.workingDaysAE);
-      totalScoreSum += sum.totalObtained;
-      totalMaxSum += sum.maxMarks;
-      if (sum.resultStatus === 'PASS') passCount++;
-      else failCount++;
+      return computeStudentSummary(st, studentActiveSubs, examMode, systemConfig.workingDaysHY, systemConfig.workingDaysAE);
     });
-
-    const avgPct = totalMaxSum > 0 ? ((totalScoreSum / totalMaxSum) * 100).toFixed(1) : '0';
-    return {
-      totalStudents: classRecords.length,
-      passCount,
-      failCount,
-      avgPct
-    };
+    return computeClassAnalytics(summaries);
   }, [classRecords, activeSubjects, examMode, systemConfig.workingDaysHY, systemConfig.workingDaysAE]);
 
   // Navigate to previous / next student
@@ -2058,7 +2008,7 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
 
                   <div className="space-y-8 print:space-y-0">
                     {classRecords.map(st => {
-                      const isIncluded = selectedBatchStudents.includes(st.admNo);
+                      const isIncluded = isBatchStudentSelected(st.admNo);
                       const shouldPrint = isIncluded;
                       const studentActiveSubs = getStudentSubjects(st, activeSubjects);
                       const stSummary = computeStudentSummary(st, studentActiveSubs, examMode, systemConfig.workingDaysHY, systemConfig.workingDaysAE);

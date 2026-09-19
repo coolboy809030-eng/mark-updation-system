@@ -1,7 +1,7 @@
 import React from 'react';
 import { SCHOOL_NAME, ACADEMIC_SESSION } from '../data/schoolConfig';
 import { SCHOOL_LOGO_BASE64 } from '../data/logoData';
-import { Wifi, WifiOff, Settings, Database, Sparkles, Shield, ArrowRight, PanelLeft, Download, FileText, UserCheck, KeyRound, LogIn, LogOut } from 'lucide-react';
+import { Wifi, WifiOff, Settings, Database, Sparkles, Shield, PanelLeft, UserCheck, KeyRound, LogIn, LogOut } from 'lucide-react';
 import { SyncStatusBar } from './common/SyncStatusBar';
 import { TeacherAccount } from '../types';
 

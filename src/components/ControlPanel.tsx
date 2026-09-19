@@ -4,7 +4,6 @@ import { SEGMENTS_BY_EXAM_TYPE } from '../data/schoolConfig';
 import { getAcademicTermLabel } from '../utils/academicTerm';
 import {
   RotateCcw,
-  Trash2,
   Users,
   Calendar,
   BookOpen,

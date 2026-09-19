@@ -4,7 +4,8 @@ import {
   computeSubjectResult, 
   computeDualExamSubjectResult, 
   rankClassStudents,
-  getStudentSubjects 
+  getStudentSubjects,
+  computeClassAnalytics 
 } from '../../utils/resultCalculator';
 import { 
   exportTabulationToPdf, 
@@ -13,7 +14,7 @@ import {
   exportBlankTabulationToExcel 
 } from '../../utils/tabulationExport';
 import { SCHOOL_NAME, SCHOOL_SUBTITLE, ACADEMIC_SESSION } from '../../data/schoolConfig';
-import { Download, Eye, FileSpreadsheet, FileText, CheckCircle2, ClipboardEdit, X, CalendarCheck } from 'lucide-react';
+import { Download, Eye, FileSpreadsheet, FileText, CheckCircle2, ClipboardEdit, X } from 'lucide-react';
 
 interface TabulationSheetProps {
   classLevel: string;
@@ -189,23 +190,14 @@ export const TabulationSheet: React.FC<TabulationSheetProps> = ({
     document.body.removeChild(link);
   };
 
-  // Class analytics
-  let totalScoreSum = 0;
-  let highestScore = 0;
-  let lowestScore = 999999;
-  let passCount = 0;
+  // Centralized Class analytics
+  const classSummaries = React.useMemo(() => {
+    return students.map(st => rankMap.get(st.admNo)?.summary).filter(Boolean) as any[];
+  }, [students, rankMap]);
 
-  students.forEach(st => {
-    const sm = rankMap.get(st.admNo)?.summary;
-    if (sm) {
-      totalScoreSum += sm.percentage;
-      if (sm.totalObtained > highestScore) highestScore = sm.totalObtained;
-      if (sm.totalObtained < lowestScore) lowestScore = sm.totalObtained;
-      if (sm.resultStatus === 'PASS') passCount++;
-    }
-  });
-
-  const classAvgPct = students.length > 0 ? (totalScoreSum / students.length).toFixed(1) : '0';
+  const classAnalytics = React.useMemo(() => {
+    return computeClassAnalytics(classSummaries);
+  }, [classSummaries]);
 
   return (
     <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden my-4">
@@ -305,19 +297,19 @@ export const TabulationSheet: React.FC<TabulationSheetProps> = ({
       <div className="no-print grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-indigo-50/40 border-b border-slate-200 text-xs">
         <div className="bg-white p-2.5 rounded-lg border border-slate-200">
           <span className="text-slate-500 block">Class Average %</span>
-          <strong className="text-base text-indigo-900 font-bold">{classAvgPct}%</strong>
+          <strong className="text-base text-indigo-900 font-bold">{classAnalytics.avgPct}%</strong>
         </div>
         <div className="bg-white p-2.5 rounded-lg border border-slate-200">
           <span className="text-slate-500 block">Pass Rate</span>
-          <strong className="text-base text-emerald-700 font-bold">{passCount}/{students.length} ({Math.round((passCount / (students.length || 1)) * 100)}%)</strong>
+          <strong className="text-base text-emerald-700 font-bold">{classAnalytics.passCount}/{classAnalytics.totalStudents} ({classAnalytics.passPercentage}%)</strong>
         </div>
         <div className="bg-white p-2.5 rounded-lg border border-slate-200">
           <span className="text-slate-500 block">Highest Total</span>
-          <strong className="text-base text-slate-800 font-bold">{highestScore} pts</strong>
+          <strong className="text-base text-slate-800 font-bold">{classAnalytics.highestScore} pts</strong>
         </div>
         <div className="bg-white p-2.5 rounded-lg border border-slate-200">
           <span className="text-slate-500 block">Lowest Total</span>
-          <strong className="text-base text-slate-800 font-bold">{lowestScore === 999999 ? 0 : lowestScore} pts</strong>
+          <strong className="text-base text-slate-800 font-bold">{classAnalytics.lowestScore} pts</strong>
         </div>
       </div>
 

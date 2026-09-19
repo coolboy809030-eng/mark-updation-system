@@ -4,7 +4,6 @@ import { detectStudentOptionalSubject } from '../utils/studentSubjectDetector';
 import { getStudentURN, getIdentityDiagnostics } from '../utils/studentIdentity';
 import { MarkStatus } from '../utils/marksStatus';
 import { CorrectionRequest } from '../utils/correctionRequests';
-import { AttendanceStatus } from '../utils/attendance';
 import { getAcademicTermLabel } from '../utils/academicTerm';
 import {
   CheckCircle2,
@@ -12,7 +11,6 @@ import {
   ChevronRight,
   Send,
   AlertCircle,
-  FileSpreadsheet,
   X,
   Database,
   Edit3

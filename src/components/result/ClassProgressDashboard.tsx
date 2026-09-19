@@ -2,7 +2,7 @@ import React from 'react';
 import { ClassLevel } from '../../types';
 import { SUBJECTS_BY_CLASS } from '../../data/schoolConfig';
 import { SystemControlConfig } from '../../types/resultTypes';
-import { Users, CheckCircle2, Clock, BarChart3, AlertCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock, BarChart3, AlertCircle, ArrowRight } from 'lucide-react';
 import { formatDisplayDateTime } from '../../utils/dateFormatter';
 
 interface ClassProgressDashboardProps {

@@ -25,14 +25,11 @@ import {
   ChevronRight, 
   ChevronLeft, 
   Search, 
-  Sparkles, 
   X, 
   Layers, 
   Users,
-  FileText,
   ExternalLink,
   Download,
-  FolderLock,
   Maximize2,
   ClipboardCheck
 } from 'lucide-react';

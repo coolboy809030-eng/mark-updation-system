@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  ShieldCheck, 
   Upload, 
   Trash2, 
   Check, 
@@ -8,8 +7,7 @@ import {
   FileCheck2, 
   Info, 
   Image as ImageIcon,
-  Sparkles,
-  RefreshCw
+  Sparkles
 } from 'lucide-react';
 import { 
   getStoredSignatures, 

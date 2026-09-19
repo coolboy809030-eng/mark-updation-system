@@ -3,6 +3,12 @@ import { AppSettings, ClassLevel, TeacherAllotment, TeacherAccount } from '../ty
 import { SUBJECTS_BY_CLASS, ALL_SUBJECT_OPTIONS, MASTER_ADMIN_PIN } from '../data/schoolConfig';
 import { CLASS_OPTIONS } from './ControlPanel';
 import {
+  verifyAdminPin,
+  getAdminFailedAttempts,
+  incrementAdminFailedAttempts,
+  resetAdminFailedAttempts
+} from '../utils/adminSession';
+import {
   generateNextTeacherId,
   isTeacherIdUnique,
   findDuplicateTeacherPermissions,
@@ -22,14 +28,11 @@ import {
   Database,
   Users,
   BookOpen,
-  Calendar,
   AlertTriangle,
   AlertCircle,
   Plus,
   Trash2,
-  FileSpreadsheet,
   CheckCircle2,
-  Layers,
   Sparkles,
   RefreshCw,
   ListFilter,
@@ -116,13 +119,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Failed attempts tracking for security warning
-  const [passwordFailedAttempts, setPasswordFailedAttempts] = useState<number>(() => {
-    try {
-      return parseInt(sessionStorage.getItem('pis_admin_failed_attempts') || '0', 10);
-    } catch {
-      return 0;
-    }
-  });
+  const [passwordFailedAttempts, setPasswordFailedAttempts] = useState<number>(() => getAdminFailedAttempts());
 
   // Admin Destructive Clear State
   const [clearTargetClass, setClearTargetClass] = useState<ClassLevel>('1');
@@ -234,15 +231,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const cleanNew = newPinInput.trim();
     const cleanConfirm = confirmPinInput.trim();
 
-    const expectedCurrent = (adminPin || '').trim() || MASTER_ADMIN_PIN;
-    if (cleanCurrent !== expectedCurrent && cleanCurrent !== MASTER_ADMIN_PIN) {
-      const nextCount = passwordFailedAttempts + 1;
+    if (!verifyAdminPin(cleanCurrent, adminPin)) {
+      const nextCount = incrementAdminFailedAttempts();
       setPasswordFailedAttempts(nextCount);
-      try {
-        sessionStorage.setItem('pis_admin_failed_attempts', String(nextCount));
-      } catch {
-        // ignore
-      }
 
       if (nextCount > 3) {
         setPasswordMsg({
@@ -281,11 +272,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       lockPassword: cleanNew
     });
     setPasswordFailedAttempts(0);
-    try {
-      sessionStorage.removeItem('pis_admin_failed_attempts');
-    } catch {
-      // ignore
-    }
+    resetAdminFailedAttempts();
 
     setPasswordMsg({
       type: 'success',
