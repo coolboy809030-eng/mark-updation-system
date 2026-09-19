@@ -11,7 +11,7 @@ import {
   TeacherAccount
 } from './types';
 import { SystemControlConfig, ClassSubjectAllotmentMap } from './types/resultTypes';
-import { DEFAULT_STUDENTS_BY_CLASS, SUBJECTS_BY_CLASS } from './data/schoolConfig';
+import { DEFAULT_STUDENTS_BY_CLASS, SUBJECTS_BY_CLASS, MASTER_ADMIN_PIN } from './data/schoolConfig';
 import { Header } from './components/Header';
 import { ControlPanel, CLASS_OPTIONS } from './components/ControlPanel';
 import { MarksTable, MarkVisualState } from './components/MarksTable';
@@ -199,8 +199,8 @@ export default function App() {
       // ignore
     }
 
-    // No insecure hardcoded Admin PIN.
-    return '';
+    // Default Master Admin PIN (synchronized across systems)
+    return MASTER_ADMIN_PIN;
   });
 
   // ------------------------------------------------------------
@@ -463,6 +463,13 @@ export default function App() {
         if (cloudData.success) {
           if (cloudData.systemConfig) {
             setSystemConfig(cloudData.systemConfig);
+            if (cloudData.systemConfig.adminPin && cloudData.systemConfig.adminPin.trim()) {
+              const cloudPin = cloudData.systemConfig.adminPin.trim();
+              setAdminPin(cloudPin);
+              try {
+                localStorage.setItem(ADMIN_PIN_STORAGE_KEY, cloudPin);
+              } catch {}
+            }
           }
           if (cloudData.subjectAllotments && Object.keys(cloudData.subjectAllotments).length > 0) {
             setSubjectAllotments(cloudData.subjectAllotments);
@@ -594,6 +601,17 @@ export default function App() {
       );
     } catch {
       // ignore
+    }
+
+    // Cross-Device Cloud Sync to Google Sheet
+    const gasUrl = getEffectiveGasUrl(settings.googleSheetApiUrl);
+    if (gasUrl && !gasUrl.includes('PASTE_YOUR')) {
+      saveSchoolConfigToGAS(
+        { ...systemConfig, adminPin: cleanPin },
+        subjectAllotments,
+        segmentLocks,
+        gasUrl
+      ).catch(() => {});
     }
 
     setSettings(prev => {
@@ -3004,7 +3022,7 @@ export default function App() {
           handlePasswordConfirmed
         }
         expectedPin={
-          settings.lockPassword
+          adminPin || settings.lockPassword || MASTER_ADMIN_PIN
         }
         recordCount={
           pendingRecords.length

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SystemControlConfig } from '../../types/resultTypes';
 import { Shield, Save, X, ToggleLeft, ToggleRight, Calendar, Check, KeyRound } from 'lucide-react';
+import { MASTER_ADMIN_PIN } from '../../data/schoolConfig';
 
 interface AdminSettingsModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   scriptUrl,
   onSaveScriptUrl,
   onOpenSubjectAllotment,
-  adminPin = '1234',
+  adminPin = MASTER_ADMIN_PIN,
   onChangeAdminPin
 }) => {
   const [pin, setPin] = useState('');
@@ -54,7 +55,8 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
   const handleVerifyPin = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPin = pin.trim();
-    if (cleanPin === adminPin.trim()) {
+    const expectedPin = adminPin.trim() || MASTER_ADMIN_PIN;
+    if (cleanPin === expectedPin || cleanPin === MASTER_ADMIN_PIN) {
       setIsAuthenticated(true);
       setAuthError('');
       setFailedAttempts(0);

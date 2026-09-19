@@ -322,6 +322,7 @@ function setupSystemConfigSheet(ss) {
       ["workingDaysHY", "110", "Total working days in Half Yearly academic term", nowStr],
       ["workingDaysAE", "115", "Total working days in Annual Exam academic term", nowStr],
       ["academicSession", "2025-2026", "Current academic year session", nowStr],
+      ["adminPin", "9889", "Master Admin PIN synchronized across devices and browsers", nowStr],
       ["schoolName", "Peace International School", "Official institutional name", nowStr],
       ["schoolSubtitle", "Chakjado Dargabela, Vaishali, Bihar", "Campus location", nowStr]
     ];
@@ -557,6 +558,8 @@ function handleGetSchoolConfig() {
         if (!isNaN(n2)) sysConfig.workingDaysAE = n2;
       } else if (key === "academicSession") {
         sysConfig.academicSession = val;
+      } else if (key === "adminPin") {
+        sysConfig.adminPin = val;
       } else if (key === "subjectAllotments") {
         try { subjectAllotments = JSON.parse(val); } catch (e) {}
       } else if (key === "segmentLocks") {
@@ -642,6 +645,7 @@ function handleSaveSchoolConfig(payload) {
   if (cfg.workingDaysHY !== undefined) keysToUpdate.workingDaysHY = String(cfg.workingDaysHY);
   if (cfg.workingDaysAE !== undefined) keysToUpdate.workingDaysAE = String(cfg.workingDaysAE);
   if (cfg.academicSession) keysToUpdate.academicSession = cfg.academicSession;
+  if (cfg.adminPin) keysToUpdate.adminPin = String(cfg.adminPin).trim();
   if (payload.subjectAllotments) keysToUpdate.subjectAllotments = JSON.stringify(payload.subjectAllotments);
   if (payload.segmentLocks) keysToUpdate.segmentLocks = JSON.stringify(payload.segmentLocks);
 

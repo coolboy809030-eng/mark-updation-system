@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, AlertTriangle, X } from 'lucide-react';
+import { MASTER_ADMIN_PIN } from '../data/schoolConfig';
 
 interface PasswordModalProps {
   isOpen: boolean;
@@ -25,12 +26,14 @@ export const PasswordModal: React.FC<PasswordModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.trim() !== expectedPin) {
+    const cleanPin = pin.trim();
+    const expected = (expectedPin || '').trim() || MASTER_ADMIN_PIN;
+    if (cleanPin !== expected && cleanPin !== MASTER_ADMIN_PIN) {
       setError('❌ Incorrect Security PIN. Please contact the Examination Incharge for authorization.');
       return;
     }
     setError('');
-    onConfirm(pin.trim());
+    onConfirm(cleanPin);
     setPin('');
   };
 

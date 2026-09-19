@@ -5,6 +5,9 @@ export const SCHOOL_NAME = 'Peace International School';
 export const SCHOOL_SUBTITLE = 'Chakjado Dargabela, Vaishali, Bihar';
 export const ACADEMIC_SESSION = getAcademicSession();
 
+// Universal Master Admin PIN for Peace International School
+export const MASTER_ADMIN_PIN = '9889';
+
 export const SUBJECTS_BY_CLASS: Record<ClassLevel, string[]> = {
   'Nursery': ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"],
   'LKG': ["Drawing", "English", "General Awareness", "Gk", "Hindi", "Mathematics", "Sanskrit", "Urdu"],

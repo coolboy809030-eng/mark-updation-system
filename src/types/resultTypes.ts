@@ -71,6 +71,7 @@ export interface SystemControlConfig {
   workingDaysHY: number;
   workingDaysAE: number;
   academicSession?: string; // e.g. "2025-26", "2026-27"
+  adminPin?: string; // Central Admin PIN synced across devices
 }
 
 export interface ExamScheduleItem {

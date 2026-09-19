@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings, ClassLevel, TeacherAllotment, TeacherAccount } from '../types';
-import { SUBJECTS_BY_CLASS, ALL_SUBJECT_OPTIONS } from '../data/schoolConfig';
+import { SUBJECTS_BY_CLASS, ALL_SUBJECT_OPTIONS, MASTER_ADMIN_PIN } from '../data/schoolConfig';
 import { CLASS_OPTIONS } from './ControlPanel';
 import {
   generateNextTeacherId,
@@ -234,7 +234,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const cleanNew = newPinInput.trim();
     const cleanConfirm = confirmPinInput.trim();
 
-    if (cleanCurrent !== adminPin) {
+    const expectedCurrent = (adminPin || '').trim() || MASTER_ADMIN_PIN;
+    if (cleanCurrent !== expectedCurrent && cleanCurrent !== MASTER_ADMIN_PIN) {
       const nextCount = passwordFailedAttempts + 1;
       setPasswordFailedAttempts(nextCount);
       try {

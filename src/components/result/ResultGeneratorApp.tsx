@@ -10,7 +10,8 @@ import {
   SUBJECTS_BY_CLASS, 
   SCHOOL_NAME, 
   SCHOOL_SUBTITLE, 
-  ACADEMIC_SESSION 
+  ACADEMIC_SESSION,
+  MASTER_ADMIN_PIN 
 } from '../../data/schoolConfig';
 import { SCHOOL_LOGO_BASE64 } from '../../data/logoData';
 import { getInitialClassExamRecords } from '../../data/mockResultData';
@@ -113,7 +114,7 @@ export const ResultGeneratorApp: React.FC<ResultGeneratorAppProps> = ({
   onUpdateSubjectAllotments,
   admitCardAllotments,
   onUpdateAdmitCardAllotments,
-  adminPin = '1234',
+  adminPin = MASTER_ADMIN_PIN,
   onChangeAdminPin,
   correctionRequests = [],
   onReviewCorrection

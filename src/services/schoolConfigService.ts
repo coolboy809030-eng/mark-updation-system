@@ -11,9 +11,11 @@ import {
   loadCanonicalCurriculum
 } from '../utils/subjectCurriculum';
 import { getEffectiveGasUrl } from '../config/appConfig';
+import { MASTER_ADMIN_PIN } from '../data/schoolConfig';
 
 export const SYSTEM_CONFIG_STORAGE_KEY = 'pis_system_control_config_v1';
 export const SEGMENT_LOCKS_STORAGE_KEY = 'pis_segment_locks_v1';
+export const ADMIN_PIN_STORAGE_KEY = 'pis_admin_master_pin_v1';
 
 export interface SchoolConfigResult {
   success: boolean;
@@ -65,15 +67,23 @@ export async function fetchSchoolConfigFromGAS(
       // 1. System Config
       let resolvedSystemConfig = localDefaults.systemConfig;
       if (data.systemConfig && typeof data.systemConfig === 'object') {
+        const cloudPin = typeof data.systemConfig.adminPin === 'string' && data.systemConfig.adminPin.trim()
+          ? data.systemConfig.adminPin.trim()
+          : (data.adminPin && typeof data.adminPin === 'string' ? data.adminPin.trim() : resolvedSystemConfig.adminPin);
+
         resolvedSystemConfig = {
           marksEntryStatus: data.systemConfig.marksEntryStatus === 'OFF' ? 'OFF' : 'ON',
           marksEntryDeadline: data.systemConfig.marksEntryDeadline || resolvedSystemConfig.marksEntryDeadline,
           workingDaysHY: typeof data.systemConfig.workingDaysHY === 'number' ? data.systemConfig.workingDaysHY : (parseInt(data.systemConfig.workingDaysHY) || 110),
           workingDaysAE: typeof data.systemConfig.workingDaysAE === 'number' ? data.systemConfig.workingDaysAE : (parseInt(data.systemConfig.workingDaysAE) || 115),
-          academicSession: data.systemConfig.academicSession || '2025-2026'
+          academicSession: data.systemConfig.academicSession || '2025-2026',
+          adminPin: cloudPin || MASTER_ADMIN_PIN
         };
         try {
           localStorage.setItem(SYSTEM_CONFIG_STORAGE_KEY, JSON.stringify(resolvedSystemConfig));
+          if (cloudPin) {
+            localStorage.setItem(ADMIN_PIN_STORAGE_KEY, cloudPin);
+          }
         } catch {}
       }
 
@@ -203,16 +213,28 @@ export function getFallbackLocalConfig(): {
   teacherAllotments: TeacherAllotment[];
 } {
   // System Config
+  let localPin = MASTER_ADMIN_PIN;
+  try {
+    const savedPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY);
+    if (savedPin && savedPin.trim()) {
+      localPin = savedPin.trim();
+    }
+  } catch {}
+
   let systemConfig: SystemControlConfig = {
     marksEntryStatus: 'ON',
     marksEntryDeadline: '2026-12-31T23:59',
     workingDaysHY: 110,
     workingDaysAE: 115,
-    academicSession: '2025-2026'
+    academicSession: '2025-2026',
+    adminPin: localPin
   };
   try {
     const savedSys = localStorage.getItem(SYSTEM_CONFIG_STORAGE_KEY);
-    if (savedSys) systemConfig = { ...systemConfig, ...JSON.parse(savedSys) };
+    if (savedSys) {
+      const parsed = JSON.parse(savedSys);
+      systemConfig = { ...systemConfig, ...parsed, adminPin: parsed.adminPin || localPin };
+    }
   } catch {}
 
   // Subject Allotments
