@@ -320,11 +320,15 @@ function doGet(e) {
       });
     }
 
+    if (action === "getSchoolConfig") {
+      return handleGetSchoolConfig();
+    }
+
     if (action === "getSystemControl") {
       return handleGetSystemControl();
     }
 
-    if (action === "getTeachers" || action === "getSchoolConfig") {
+    if (action === "getTeachers") {
       return handleGetTeachers();
     }
 
@@ -388,12 +392,12 @@ function doPost(e) {
       return handleDeleteStudent(payload);
     }
 
-    if (action === "saveTeachers") {
+    if (action === "saveTeachers" || action === "saveTeacherRegistry") {
       return handleSaveTeachers(payload);
     }
 
-    if (action === "updateSystemControl" || action === "saveSystemControl") {
-      return handleUpdateSystemControl(payload);
+    if (action === "updateSystemControl" || action === "saveSystemControl" || action === "saveSchoolConfig") {
+      return handleSaveSchoolConfig(payload);
     }
 
     if (action === "clearSheetData") {
@@ -414,9 +418,66 @@ function doPost(e) {
   }
 }
 
+function handleGetSchoolConfig() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("_SYSTEM_CONFIG") || ss.getSheetByName("_CONFIG") || setupSystemConfigSheet(ss);
+  
+  var sysConfig = {
+    marksEntryStatus: "ON",
+    marksEntryDeadline: "2026-12-31T23:59",
+    workingDaysHY: 110,
+    workingDaysAE: 115,
+    academicSession: SCHOOL_METADATA.academicSession
+  };
+  var subjectAllotments = {};
+  var segmentLocks = {};
+
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var r = 1; r < data.length; r++) {
+      var key = String(data[r][0] || "").trim();
+      var val = String(data[r][1] || "").trim();
+      if (!key) continue;
+
+      if (key === "marksEntryStatus") {
+        sysConfig.marksEntryStatus = val.toUpperCase() === "OFF" ? "OFF" : "ON";
+      } else if (key === "marksEntryDeadline") {
+        sysConfig.marksEntryDeadline = val;
+      } else if (key === "workingDaysHY") {
+        var n = parseInt(val, 10);
+        if (!isNaN(n)) sysConfig.workingDaysHY = n;
+      } else if (key === "workingDaysAE") {
+        var n2 = parseInt(val, 10);
+        if (!isNaN(n2)) sysConfig.workingDaysAE = n2;
+      } else if (key === "academicSession") {
+        sysConfig.academicSession = val;
+      } else if (key === "subjectAllotments") {
+        try { subjectAllotments = JSON.parse(val); } catch (e) {}
+      } else if (key === "segmentLocks") {
+        try { segmentLocks = JSON.parse(val); } catch (e) {}
+      }
+    }
+  }
+
+  var teacherData = getTeachersData(ss);
+
+  return jsonResponse({
+    status: "success",
+    success: true,
+    systemConfig: sysConfig,
+    subjectAllotments: subjectAllotments,
+    segmentLocks: segmentLocks,
+    teacherAccounts: teacherData.accounts,
+    teacherAllotments: teacherData.allotments,
+    accounts: teacherData.accounts,
+    allotments: teacherData.allotments,
+    timestamp: new Date().toISOString()
+  });
+}
+
 function handleGetSystemControl() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("_SYSTEM_CONFIG");
+  var sheet = ss.getSheetByName("_SYSTEM_CONFIG") || ss.getSheetByName("_CONFIG") || setupSystemConfigSheet(ss);
   var config = {
     status: "success",
     success: true,
@@ -455,9 +516,9 @@ function handleGetSystemControl() {
   return jsonResponse(config);
 }
 
-function handleUpdateSystemControl(payload) {
+function handleSaveSchoolConfig(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("_SYSTEM_CONFIG") || setupSystemConfigSheet(ss);
+  var sheet = ss.getSheetByName("_SYSTEM_CONFIG") || ss.getSheetByName("_CONFIG") || setupSystemConfigSheet(ss);
 
   var cfg = payload.config || payload;
   var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "GMT+5:30", "yyyy-MM-dd HH:mm");
@@ -469,6 +530,8 @@ function handleUpdateSystemControl(payload) {
   if (cfg.workingDaysHY !== undefined) keysToUpdate.workingDaysHY = String(cfg.workingDaysHY);
   if (cfg.workingDaysAE !== undefined) keysToUpdate.workingDaysAE = String(cfg.workingDaysAE);
   if (cfg.academicSession) keysToUpdate.academicSession = cfg.academicSession;
+  if (payload.subjectAllotments) keysToUpdate.subjectAllotments = JSON.stringify(payload.subjectAllotments);
+  if (payload.segmentLocks) keysToUpdate.segmentLocks = JSON.stringify(payload.segmentLocks);
 
   for (var r = 1; r < data.length; r++) {
     var key = String(data[r][0] || "").trim();
@@ -483,29 +546,25 @@ function handleUpdateSystemControl(payload) {
     sheet.appendRow([k, keysToUpdate[k], "System Configuration Property", nowStr]);
   }
 
-  logAuditEvent("Admin", "ADMIN", "UPDATE_CONFIG", "SYSTEM", "ALL", 1, "SUCCESS", "System control settings updated successfully.");
+  logAuditEvent("Admin", "ADMIN", "UPDATE_CONFIG", "SYSTEM", "ALL", 1, "SUCCESS", "School configuration & curriculum synced successfully.");
 
   return jsonResponse({
     status: "success",
     success: true,
-    message: "System control configuration updated successfully in Google Sheet (_SYSTEM_CONFIG)."
+    message: "School configuration updated successfully in Google Sheet (_SYSTEM_CONFIG)."
   });
 }
 
-function handleGetTeachers() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function handleUpdateSystemControl(payload) {
+  return handleSaveSchoolConfig(payload);
+}
+
+function getTeachersData(ss) {
   var sheet = ss.getSheetByName("_TEACHERS") || setupTeachersSheet(ss);
   var data = sheet.getDataRange().getValues();
 
   if (data.length < 2) {
-    return jsonResponse({
-      status: "success",
-      success: true,
-      accounts: [],
-      allotments: [],
-      count: 0,
-      message: "No teachers configured in _TEACHERS tab."
-    });
+    return { accounts: [], allotments: [] };
   }
 
   var accounts = [];
@@ -564,12 +623,19 @@ function handleGetTeachers() {
     }
   }
 
+  return { accounts: accounts, allotments: allotments };
+}
+
+function handleGetTeachers() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var teacherData = getTeachersData(ss);
+
   return jsonResponse({
     status: "success",
     success: true,
-    accounts: accounts,
-    allotments: allotments,
-    count: accounts.length
+    accounts: teacherData.accounts,
+    allotments: teacherData.allotments,
+    count: teacherData.accounts.length
   });
 }
 
@@ -577,8 +643,8 @@ function handleSaveTeachers(payload) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("_TEACHERS") || setupTeachersSheet(ss);
 
-  var accounts = payload.accounts || [];
-  var allotments = payload.allotments || [];
+  var accounts = payload.teacherAccounts || payload.accounts || [];
+  var allotments = payload.teacherAllotments || payload.allotments || [];
 
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {

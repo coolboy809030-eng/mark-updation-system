@@ -14,6 +14,7 @@ interface HeaderProps {
   isAdminSessionActive?: boolean;
   onSwitchToResultGenerator?: () => void;
   isSystemLocked?: boolean;
+  isTeacherPortal?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdminLogin,
   isAdminSessionActive,
   onSwitchToResultGenerator,
-  isSystemLocked
+  isSystemLocked,
+  isTeacherPortal
 }) => {
   return (
     <header className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] border-b border-slate-800 text-white shadow-md sticky top-0 z-40">
@@ -50,6 +52,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#D4AF37] text-slate-950 shadow-xs">
                   {ACADEMIC_SESSION}
                 </span>
+                {isTeacherPortal && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    Teacher Portal
+                  </span>
+                )}
                 {isSystemLocked && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white shadow-sm">
                     🔒 Submissions Locked
@@ -138,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {/* Admin Controls (Visible ONLY when Admin Session is Authenticated) */}
-            {isAdminSessionActive && (
+            {isAdminSessionActive ? (
               <>
                 {onSwitchToResultGenerator && (
                   <button
@@ -161,6 +168,17 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Admin Controls</span>
                 </button>
               </>
+            ) : (
+              !isTeacherPortal && (
+                <button
+                  onClick={onOpenAdminLogin}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Examination Admin Login"
+                >
+                  <Shield className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Admin Login</span>
+                </button>
+              )
             )}
           </div>
 

@@ -72,6 +72,7 @@ import {
 } from './utils/teacherAccount';
 import { getEffectiveGasUrl } from './config/appConfig';
 import { fetchTeacherRegistryFromGAS, saveTeacherRegistryToGAS } from './services/teacherSyncService';
+import { fetchSchoolConfigFromGAS, saveSchoolConfigToGAS } from './services/schoolConfigService';
 import {
   CheckCircle2,
   AlertCircle,
@@ -259,6 +260,9 @@ export default function App() {
       SYSTEM_CONFIG_STORAGE_KEY,
       JSON.stringify(newCfg)
     );
+    if (settings.googleSheetApiUrl && !settings.googleSheetApiUrl.includes('PASTE_YOUR')) {
+      saveSchoolConfigToGAS(newCfg, subjectAllotments, segmentLocks, settings.googleSheetApiUrl).catch(() => {});
+    }
   };
 
   // ------------------------------------------------------------
@@ -283,6 +287,10 @@ export default function App() {
   ) => {
     setSubjectAllotments(newAllotments);
     saveCanonicalCurriculum(newAllotments);
+
+    if (settings.googleSheetApiUrl && !settings.googleSheetApiUrl.includes('PASTE_YOUR')) {
+      saveSchoolConfigToGAS(systemConfig, newAllotments, segmentLocks, settings.googleSheetApiUrl).catch(() => {});
+    }
 
     showNotification(
       'success',
@@ -374,6 +382,10 @@ export default function App() {
       JSON.stringify(newLocks)
     );
 
+    if (settings.googleSheetApiUrl && !settings.googleSheetApiUrl.includes('PASTE_YOUR')) {
+      saveSchoolConfigToGAS(systemConfig, subjectAllotments, newLocks, settings.googleSheetApiUrl).catch(() => {});
+    }
+
     showNotification(
       'success',
       'सेगमेंट सुरक्षा लॉक सेटिंग्स अपडेट कर दी गई हैं!'
@@ -404,19 +416,28 @@ export default function App() {
       return loadTeacherAllotments();
     });
 
-  // Cross-device sync from Google Sheet _TEACHERS tab on startup
+  // Clean Isolation & Cross-Device Cloud Sync on startup
   useEffect(() => {
     const syncFromCloud = async () => {
       const gasUrl = getEffectiveGasUrl(settings.googleSheetApiUrl);
       if (!gasUrl || gasUrl.includes('PASTE_YOUR')) return;
       try {
-        const cloudData = await fetchTeacherRegistryFromGAS(gasUrl);
-        if (cloudData.success && cloudData.accounts && cloudData.accounts.length > 0) {
-          setTeacherAccounts(cloudData.accounts);
-          saveTeacherAccounts(cloudData.accounts);
-          if (cloudData.allotments && cloudData.allotments.length > 0) {
-            setTeacherAllotments(cloudData.allotments);
-            saveTeacherAllotments(cloudData.allotments);
+        const cloudData = await fetchSchoolConfigFromGAS(gasUrl);
+        if (cloudData.success) {
+          if (cloudData.systemConfig) {
+            setSystemConfig(cloudData.systemConfig);
+          }
+          if (cloudData.subjectAllotments && Object.keys(cloudData.subjectAllotments).length > 0) {
+            setSubjectAllotments(cloudData.subjectAllotments);
+          }
+          if (cloudData.segmentLocks && Object.keys(cloudData.segmentLocks).length > 0) {
+            setSegmentLocks(cloudData.segmentLocks);
+          }
+          if (cloudData.teacherAccounts && cloudData.teacherAccounts.length > 0) {
+            setTeacherAccounts(cloudData.teacherAccounts);
+          }
+          if (cloudData.teacherAllotments && cloudData.teacherAllotments.length > 0) {
+            setTeacherAllotments(cloudData.teacherAllotments);
           }
         }
       } catch (e) {
@@ -2106,6 +2127,7 @@ export default function App() {
           systemConfig.marksEntryStatus ===
           'OFF'
         }
+        isTeacherPortal={isExplicitTeacher}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
